@@ -1,0 +1,71 @@
+﻿<Window x:Class="SC4LTEXTT.MainWindow"
+		xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+		xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+		xmlns:local="clr-namespace:SC4LTEXTT"
+		mc:Ignorable="d"
+		Title="MainWindow"
+		Height="450"
+		Width="800">
+	<Grid>
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition Width="63*" />
+		</Grid.ColumnDefinitions>
+
+		<ListBox x:Name="ListofLTEXTs"
+				 ItemsSource="{Binding LTEXTEntries}"
+				 Margin="10,17,445,72"
+				 SelectionMode="Single"
+				 SelectionChanged="ListofLTEXTs_OnSelectionChanged">
+			<ListBox.ItemTemplate>
+				<DataTemplate>
+					<Grid>
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="40" />
+							<ColumnDefinition Width="*" />
+						</Grid.ColumnDefinitions>
+						<Label Grid.Column="0"
+							   Content="{Binding Path=IndexPos}" />
+						<Label Grid.Column="1"
+							   Content="{Binding Path=TGI}" />
+					</Grid>
+				</DataTemplate>
+			</ListBox.ItemTemplate>
+		</ListBox>
+
+
+		<TextBlock x:Name="TranslationInput"
+				   HorizontalAlignment="Left"
+				   Margin="369,21,0,0"
+				   TextWrapping="Wrap"
+				   Text="TextBlock"
+				   VerticalAlignment="Top"
+				   Height="124"
+				   Width="391" />
+		<TextBox x:Name="TranslateTo"
+				 TextWrapping="Wrap"
+				 Text=""
+				 Width="120"
+				 Height="20"
+				 Margin="381,190,0,0"
+				 HorizontalAlignment="Left"
+				 VerticalAlignment="Top" />
+		<Button x:Name="TranslateButton"
+				Content="Translate"
+				Margin="381,217,283,0"
+				Click="TranslateText_Click"
+				Height="44"
+				VerticalAlignment="Top" />
+		<TextBlock x:Name="TranslationOutput"
+				   Text=""
+				   HorizontalAlignment="Left"
+				   Margin="369,279,0,0"
+				   VerticalAlignment="Top"
+				   Height="131"
+				   Width="402"
+				   TextWrapping="Wrap" />
+
+
+	</Grid>
+</Window>
