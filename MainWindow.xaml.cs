@@ -7,13 +7,13 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
-using System.Windows.Shapes;
 using csDBPF;
 using csDBPF.Entries;
 using System.IO;
 using Azure;
 using Azure.AI.Translation.Text;
 using System.Collections.ObjectModel;
+using Microsoft.Win32;
 
 namespace SC4LTEXTT {
     /// <summary>
@@ -33,13 +33,13 @@ namespace SC4LTEXTT {
         }
 
         public Dictionary<byte, lang> languages = new Dictionary<byte, lang>();
-        public DBPFFile dbpf;
         private List<DBPFEntry> ltexts = new List<DBPFEntry>();
         //public ObservableCollection<DBPFEntry> LTEXTEntries {
         //    get { return new ObservableCollection<DBPFEntry>(ltexts); }
         //}
         public ObservableCollection<DBPFEntry> LTEXTEntries { get; set; }
         private string _selectedText;
+        public DBPFFile dbpf;
 
 
 
@@ -69,7 +69,6 @@ namespace SC4LTEXTT {
 
 
 
-            
 
 
             dbpf = new DBPFFile("C:\\Users\\Administrator\\Documents\\SimCity 4\\Plugins\\Fixed Underfunded Notices (Med-High).dat");
@@ -78,7 +77,8 @@ namespace SC4LTEXTT {
                 entry.Decode();
             }
 
-            
+
+
             InitializeComponent();
             //https://stackoverflow.com/a/47596613/10802255
             //https://learn.microsoft.com/en-us/dotnet/desktop/wpf/data/data-templating-overview?view=netframeworkdesktop-4.8
@@ -126,8 +126,9 @@ namespace SC4LTEXTT {
                 //Console.WriteLine($"Text was translated to: '{translation?.Translations?.FirstOrDefault().To}' and the result is: '{translation?.Translations?.FirstOrDefault()?.Text}'.");
             }
             catch (RequestFailedException exception) {
-                Console.WriteLine($"Error Code: {exception.ErrorCode}");
-                Console.WriteLine($"Message: {exception.Message}");
+                //Console.WriteLine($"Error Code: {exception.ErrorCode}");
+                //Console.WriteLine($"Message: {exception.Message}");
+                MessageBox.Show($"{exception.ErrorCode}: {exception.Message}", "Translation Error!", MessageBoxButton.OK);
             }
         }
 
@@ -135,6 +136,25 @@ namespace SC4LTEXTT {
             if (ListofLTEXTs.SelectedItems is not null) {
                 _selectedText = ((DBPFEntryLTEXT) ListofLTEXTs.SelectedItems[0]).Text;
                 TranslationInput.Text = _selectedText;
+            }
+            
+        }
+
+        private void ChooseFile_Click(object sender, RoutedEventArgs e) {
+            OpenFileDialog dialog = new OpenFileDialog();
+            if (dialog.ShowDialog() == true) {
+                FileName.Content = Path.GetFileName(dialog.FileName);
+
+                dbpf = new DBPFFile(dialog.FileName);
+                ltexts = dbpf.GetEntries(DBPFTGI.LTEXT);
+                foreach (DBPFEntry entry in ltexts) {
+                    entry.Decode();
+                }
+                //DataContext = this;
+                //LTEXTEntries = new ObservableCollection<DBPFEntry>(ltexts);
+
+            } else {
+                return;
             }
             
         }

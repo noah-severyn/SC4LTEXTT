@@ -6,18 +6,41 @@
 		xmlns:local="clr-namespace:SC4LTEXTT"
 		mc:Ignorable="d"
 		Title="MainWindow"
-		Height="450"
+		Height="500"
 		Width="800">
 	<Grid>
 		<Grid.ColumnDefinitions>
-			<ColumnDefinition Width="63*" />
+			<ColumnDefinition Width="100" />
+			<ColumnDefinition Width="250" />
+			<ColumnDefinition Width="*" />
 		</Grid.ColumnDefinitions>
 
+		<Button x:Name="ChooseFile"
+				Content="Choose File"
+				HorizontalAlignment="Left"
+				Margin="10,10,0,0"
+				VerticalAlignment="Top"
+				Height="20"
+				Width="80"
+				Click="ChooseFile_Click" />
+		<Label x:Name="FileName"
+			   Content=""
+			   Margin="0,0,10,0"
+			   Grid.Column="1"
+			   Height="40"
+			   VerticalAlignment="Top"
+			   VerticalContentAlignment="Center"
+			   FontSize="11" />
+
 		<ListBox x:Name="ListofLTEXTs"
-				 ItemsSource="{Binding LTEXTEntries}"
-				 Margin="10,17,445,72"
+				 Grid.Column="0"
+				 Grid.ColumnSpan="2"
+				 Width="330"
 				 SelectionMode="Single"
-				 SelectionChanged="ListofLTEXTs_OnSelectionChanged">
+				 SelectionChanged="ListofLTEXTs_OnSelectionChanged"
+				 Margin="10,40,0,10"
+				 HorizontalAlignment="Left"
+				 ItemsSource="{Binding LTEXTEntries}">
 			<ListBox.ItemTemplate>
 				<DataTemplate>
 					<Grid>
@@ -34,37 +57,46 @@
 			</ListBox.ItemTemplate>
 		</ListBox>
 
+		<!-- Column 2 -->
+		<StackPanel Grid.Column="2">
+			<Border BorderBrush="Black"
+					BorderThickness=".5"
+					Margin="10"
+					VerticalAlignment="Top"
+					Height="200">
+				<TextBlock x:Name="TranslationInput"
+						   TextWrapping="Wrap" />
+			</Border>
 
-		<TextBlock x:Name="TranslationInput"
-				   HorizontalAlignment="Left"
-				   Margin="369,21,0,0"
-				   TextWrapping="Wrap"
-				   Text="TextBlock"
-				   VerticalAlignment="Top"
-				   Height="124"
-				   Width="391" />
-		<TextBox x:Name="TranslateTo"
-				 TextWrapping="Wrap"
-				 Text=""
-				 Width="120"
-				 Height="20"
-				 Margin="381,190,0,0"
-				 HorizontalAlignment="Left"
-				 VerticalAlignment="Top" />
-		<Button x:Name="TranslateButton"
-				Content="Translate"
-				Margin="381,217,283,0"
-				Click="TranslateText_Click"
-				Height="44"
-				VerticalAlignment="Top" />
-		<TextBlock x:Name="TranslationOutput"
-				   Text=""
-				   HorizontalAlignment="Left"
-				   Margin="369,279,0,0"
-				   VerticalAlignment="Top"
-				   Height="131"
-				   Width="402"
-				   TextWrapping="Wrap" />
+			<TextBox x:Name="TranslateTo"
+					 TextWrapping="Wrap"
+					 Text=""
+					 Width="120"
+					 Height="20"
+					 Margin="10,0,0,0"
+					 HorizontalAlignment="Left"
+					 VerticalAlignment="Top" />
+			<Button x:Name="TranslateButton"
+					Content="Translate"
+					Margin="10,0,10,0"
+					Click="TranslateText_Click"
+					VerticalAlignment="Top" />
+			<Border BorderBrush="Black"
+					BorderThickness=".5"
+					Margin="10"
+					VerticalAlignment="Top"
+					Height="200">
+				<TextBlock x:Name="TranslationOutput"
+						   Text=""
+						   HorizontalAlignment="Left"
+						   VerticalAlignment="Top"
+						   Height="200"
+						   Width="430"
+						   TextWrapping="Wrap" />
+			</Border>
+
+		</StackPanel>
+
 
 
 	</Grid>
