@@ -14,6 +14,7 @@ using Azure;
 using Azure.AI.Translation.Text;
 using System.Collections.ObjectModel;
 using Microsoft.Win32;
+using System.ComponentModel;
 
 namespace SC4LTEXTT {
     /// <summary>
@@ -22,79 +23,74 @@ namespace SC4LTEXTT {
     public partial class MainWindow : Window {
 
 
-        public struct lang {
-            public string iso;
-            public string desc;
+        public struct LanguageItem {
+            public byte Offset;
+            public string ISO;
+            public string Desc;
 
-            public lang(string iso, string desc) {
-                this.iso = iso;
-                this.desc = desc;
+            public LanguageItem(byte offset, string iso, string desc) {
+                Offset = offset;
+                ISO = iso;
+                Desc = desc;
+            }
+            public override readonly string ToString() {
+                return $"0x{Offset.ToString("x2")}: {ISO} - {Desc}";
             }
         }
 
-        public Dictionary<byte, lang> languages = new Dictionary<byte, lang>();
+        private readonly List<LanguageItem> languages = new List<LanguageItem>();
         private List<DBPFEntry> ltexts = new List<DBPFEntry>();
-        //public ObservableCollection<DBPFEntry> LTEXTEntries {
-        //    get { return new ObservableCollection<DBPFEntry>(ltexts); }
-        //}
-        public ObservableCollection<DBPFEntry> LTEXTEntries { get; set; }
-        private string _selectedText;
-        public DBPFFile dbpf;
+        private DBPFFile? dbpf;
+        private int selectedIndex;
 
+        //https://stackoverflow.com/a/47596613/10802255
+        //https://learn.microsoft.com/en-us/dotnet/desktop/wpf/data/data-templating-overview?view=netframeworkdesktop-4.8
+        //public ObservableCollection<ListItem> LTEXTItems { get; set; }
+
+        private string[] translatedTexts = [];
 
 
         public MainWindow() {
+            InitializeComponent();
             //SC4 built in languages
             //Azure translation language tags are BCP 47 (IETF) https://en.wikipedia.org/wiki/IETF_language_tag
-            languages.Add(0x00, new lang("en-US", "Default")); //(used if localized LTEXT file Is missing)
-            languages.Add(0x01, new lang("en-US", "US English"));
-            languages.Add(0x02, new lang("en-GB", "UK English"));
-            languages.Add(0x03, new lang("fr", "French"));
-            languages.Add(0x04, new lang("de", "Gernam"));
-            languages.Add(0x05, new lang("it", "Italina"));
-            languages.Add(0x06, new lang("es", "Spanish"));
-            languages.Add(0x07, new lang("nl", "Dutch"));
-            languages.Add(0x08, new lang("da", "Danish"));
-            languages.Add(0x09, new lang("sv", "Swedish"));
-            languages.Add(0x0A, new lang("no", "Norwegian"));
-            languages.Add(0x0B, new lang("fi", "Finnish"));
+            languages.Add(new LanguageItem(0x00, "en-US", "Default")); //(used if localized LTEXT file Is missing)
+            languages.Add(new LanguageItem(0x01, "en-US", "US English"));
+            languages.Add(new LanguageItem(0x02, "en-GB", "UK English"));
+            languages.Add(new LanguageItem(0x03, "fr", "French"));
+            languages.Add(new LanguageItem(0x04, "de", "Gernam"));
+            languages.Add(new LanguageItem(0x05, "it", "Italina"));
+            languages.Add(new LanguageItem(0x06, "es", "Spanish"));
+            languages.Add(new LanguageItem(0x07, "nl", "Dutch"));
+            languages.Add(new LanguageItem(0x08, "da", "Danish"));
+            languages.Add(new LanguageItem(0x09, "sv", "Swedish"));
+            languages.Add(new LanguageItem(0x0A, "no", "Norwegian"));
+            languages.Add(new LanguageItem(0x0B, "fi", "Finnish"));
 
-            languages.Add(0x0F, new lang("ja", "Japanese"));
-            languages.Add(0x10, new lang("pl", "Polish"));
-            languages.Add(0x11, new lang("zh-hans", "Simplified Chinese"));
-            languages.Add(0x12, new lang("zh-hant", "Traditional Chinese"));
-            languages.Add(0x13, new lang("th", "Thai")); 
-            languages.Add(0x14, new lang("ko", "Korean"));
-            languages.Add(0x23, new lang("pt", "Portuguese (Brazilian)"));
+            languages.Add(new LanguageItem(0x0F, "ja", "Japanese"));
+            languages.Add(new LanguageItem(0x10, "pl", "Polish"));
+            languages.Add(new LanguageItem(0x11, "zh-hans", "Simplified Chinese"));
+            languages.Add(new LanguageItem(0x12, "zh-hant", "Traditional Chinese"));
+            languages.Add(new LanguageItem(0x13, "th", "Thai")); 
+            languages.Add(new LanguageItem(0x14, "ko", "Korean"));
+            languages.Add(new LanguageItem(0x23, "pt", "Portuguese (Brazilian)"));
 
-
-
-
-
-            dbpf = new DBPFFile("C:\\Users\\Administrator\\Documents\\SimCity 4\\Plugins\\Fixed Underfunded Notices (Med-High).dat");
-            ltexts = dbpf.GetEntries(DBPFTGI.LTEXT);
-            foreach (DBPFEntry entry in ltexts) {
-                entry.Decode();
-            }
-
-
-
-            InitializeComponent();
-            //https://stackoverflow.com/a/47596613/10802255
-            //https://learn.microsoft.com/en-us/dotnet/desktop/wpf/data/data-templating-overview?view=netframeworkdesktop-4.8
-            DataContext = this;
-            LTEXTEntries = new ObservableCollection<DBPFEntry>(ltexts);
+            TranslateTo.ItemsSource = languages.Skip(1);
         }
+
+
 
         private void TranslateText_Click(object sender, RoutedEventArgs e) {
             AzureKeyCredential credential = new(File.ReadAllText("C:\\source\\repos\\AzureTranslateAPIKey.txt"));
             TextTranslationClient client = new(credential, "global");
 
-
+            if (TranslateTo.SelectedItem is null) {
+                return;
+            }
 
             try {
-                string targetLanguage = TranslateTo.Text;
-                string inputText = _selectedText;
+                string targetLanguage = languages.Where(r => r.Offset == Convert.ToByte(TranslateTo.SelectedItem.ToString()?.Substring(2, 2) )).First().ISO;
+                string inputText = TranslationInput.Text;
 
                 //Response<IReadOnlyList<TranslatedTextItem>> response = await client.TranslateAsync(targetLanguage, inputText).ConfigureAwait(false);
                 //StringBuilder alllLangs = new StringBuilder();
@@ -115,30 +111,30 @@ namespace SC4LTEXTT {
                 IReadOnlyList<TranslatedTextItem> translations = response.Value;
                 TranslatedTextItem? translation = translations.FirstOrDefault();
 
-                
-                //foreach (TranslatedTextItem translationItem in translations) {
-                //    output = output + translationItem.Translations?.FirstOrDefault().Text + " ";
-                //}
 
                 TranslationOutput.Text = translation?.Translations?.FirstOrDefault().Text;
+                translatedTexts[selectedIndex] = TranslationOutput.Text;
 
                 //Console.WriteLine($"Detected languages of the input text: {translation?.DetectedLanguage?.Language} with score: {translation?.DetectedLanguage?.Score}.");
                 //Console.WriteLine($"Text was translated to: '{translation?.Translations?.FirstOrDefault().To}' and the result is: '{translation?.Translations?.FirstOrDefault()?.Text}'.");
             }
             catch (RequestFailedException exception) {
-                //Console.WriteLine($"Error Code: {exception.ErrorCode}");
-                //Console.WriteLine($"Message: {exception.Message}");
                 MessageBox.Show($"{exception.ErrorCode}: {exception.Message}", "Translation Error!", MessageBoxButton.OK);
             }
         }
 
+
+
         private void ListofLTEXTs_OnSelectionChanged(object sender, SelectionChangedEventArgs e) {
-            if (ListofLTEXTs.SelectedItems is not null) {
-                _selectedText = ((DBPFEntryLTEXT) ListofLTEXTs.SelectedItems[0]).Text;
-                TranslationInput.Text = _selectedText;
+            DBPFEntryLTEXT? selectedItem = (DBPFEntryLTEXT) ListofLTEXTs.SelectedItems[0];
+            if (selectedItem is not null) {
+                selectedIndex = (int) selectedItem.IndexPos;
+                TranslationInput.Text = selectedItem.Text;
+                TranslationOutput.Text = translatedTexts[selectedIndex];
             }
-            
         }
+
+
 
         private void ChooseFile_Click(object sender, RoutedEventArgs e) {
             OpenFileDialog dialog = new OpenFileDialog();
@@ -150,8 +146,10 @@ namespace SC4LTEXTT {
                 foreach (DBPFEntry entry in ltexts) {
                     entry.Decode();
                 }
-                //DataContext = this;
-                //LTEXTEntries = new ObservableCollection<DBPFEntry>(ltexts);
+                ListofLTEXTs.ItemsSource = ltexts;
+                //translatedTexts = new List<string>(ltexts.Count);
+                translatedTexts = new string[ltexts.Count];
+
 
             } else {
                 return;

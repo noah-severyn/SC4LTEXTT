@@ -2,11 +2,9 @@
 		xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 		xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-		xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 		xmlns:local="clr-namespace:SC4LTEXTT"
-		mc:Ignorable="d"
 		Title="MainWindow"
-		Height="500"
+		Height="550"
 		Width="800">
 	<Grid>
 		<Grid.ColumnDefinitions>
@@ -39,8 +37,7 @@
 				 SelectionMode="Single"
 				 SelectionChanged="ListofLTEXTs_OnSelectionChanged"
 				 Margin="10,40,0,10"
-				 HorizontalAlignment="Left"
-				 ItemsSource="{Binding LTEXTEntries}">
+				 HorizontalAlignment="Left">
 			<ListBox.ItemTemplate>
 				<DataTemplate>
 					<Grid>
@@ -64,14 +61,13 @@
 					Margin="10"
 					VerticalAlignment="Top"
 					Height="200">
-				<TextBlock x:Name="TranslationInput"
-						   TextWrapping="Wrap" />
+				<TextBox x:Name="TranslationInput"
+						   TextWrapping="Wrap"
+						 IsReadOnly="True"/>
 			</Border>
 
-			<TextBox x:Name="TranslateTo"
-					 TextWrapping="Wrap"
-					 Text=""
-					 Width="120"
+			<ComboBox x:Name="TranslateTo"
+					 Width="220"
 					 Height="20"
 					 Margin="10,0,0,0"
 					 HorizontalAlignment="Left"
@@ -86,13 +82,12 @@
 					Margin="10"
 					VerticalAlignment="Top"
 					Height="200">
-				<TextBlock x:Name="TranslationOutput"
-						   Text=""
-						   HorizontalAlignment="Left"
-						   VerticalAlignment="Top"
-						   Height="200"
-						   Width="430"
-						   TextWrapping="Wrap" />
+				<TextBox x:Name="TranslationOutput"
+						 HorizontalAlignment="Left"
+						 VerticalAlignment="Top"
+						 Height="200"
+						 Width="430"
+						 TextWrapping="Wrap"/>
 			</Border>
 
 		</StackPanel>
