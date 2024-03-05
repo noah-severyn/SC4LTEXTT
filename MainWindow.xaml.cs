@@ -15,18 +15,32 @@ using Azure.AI.Translation.Text;
 using System.Collections.ObjectModel;
 using Microsoft.Win32;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 
+//<Window x:Class="SC4LTEXTT.MainWindow"
 namespace SC4LTEXTT {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window {
+        internal readonly Version releaseVersion = new Version(0, 1);
 
-
+        /// <summary>
+        /// Stores information about a game-supported language.
+        /// </summary>
         public struct LanguageItem {
-            public byte Offset;
-            public string ISO;
-            public string Desc;
+            /// <summary>
+            /// The offset from the base LTEXT Group ID defines the language to use.
+            /// </summary>
+            public byte Offset {get; set;}
+            /// <summary>
+            /// Language tag. Azure translation language tags are <see href="https://en.wikipedia.org/wiki/IETF_language_tag">BCP 47 (IETF)</see>.
+            /// </summary>
+            public string ISO { get; set; }
+            /// <summary>
+            /// Language name (and detail, if appropriate).
+            /// </summary>
+            public string Desc { get; set; }
 
             public LanguageItem(byte offset, string iso, string desc) {
                 Offset = offset;
@@ -37,29 +51,85 @@ namespace SC4LTEXTT {
                 return $"0x{Offset.ToString("x2")}: {ISO} - {Desc}";
             }
         }
-
         private readonly List<LanguageItem> languages = new List<LanguageItem>();
-        private List<DBPFEntry> ltexts = new List<DBPFEntry>();
-        private DBPFFile? dbpf;
-        private int selectedIndex;
+
+        /// <summary>
+        /// Item of the list box, consisting of the LTEXT entry plus other parameters.
+        /// </summary>
+        private class ListBoxItem {
+            public DBPFEntryLTEXT Entry { get; set; }
+
+            private bool _isTranslated;
+            public bool IsTranslated {
+                get { return _isTranslated; }
+                set {
+                    _isTranslated = value;
+                    if (_isTranslated) {
+                        ForeColor = Brushes.Black;
+                        BackColor = Brushes.LightGoldenrodYellow;
+                    } else {
+                        ForeColor = Brushes.Black; 
+                        BackColor = Brushes.Transparent;
+                    }
+                }
+            }
+
+            public SolidColorBrush ForeColor { get; private set; }
+            public SolidColorBrush BackColor { get; private set; }
+
+            public ListBoxItem(DBPFEntry entry, bool isTranslated) {
+                Entry = (DBPFEntryLTEXT) entry;
+                _isTranslated = isTranslated;
+                ForeColor = Brushes.Black;
+                BackColor = Brushes.Transparent;
+            }
+            public ListBoxItem(DBPFEntryLTEXT entry, bool isTranslated) {
+                Entry = entry;
+                _isTranslated = isTranslated;
+                ForeColor = Brushes.Black;
+                BackColor = Brushes.Transparent;
+            }
+        }
+        private List<ListBoxItem> listitems = new List<ListBoxItem>();
+
+
+
+        private DBPFFile? _openFile;
+        private int _selectedIndex;
+        private byte _selectedLanguageOffset;
 
         //https://stackoverflow.com/a/47596613/10802255
         //https://learn.microsoft.com/en-us/dotnet/desktop/wpf/data/data-templating-overview?view=netframeworkdesktop-4.8
         //public ObservableCollection<ListItem> LTEXTItems { get; set; }
 
-        private string[] translatedTexts = [];
+        private string[] originalTranslations = []; //Stores the output returned from Azure
+        private string[] modifiedTranslations = []; //Stores the user-modified translation output
 
 
         public MainWindow() {
+            Title = "SC4 LTEXT Translator - " + releaseVersion.ToString();
             InitializeComponent();
-            //SC4 built in languages
-            //Azure translation language tags are BCP 47 (IETF) https://en.wikipedia.org/wiki/IETF_language_tag
-            languages.Add(new LanguageItem(0x00, "en-US", "Default")); //(used if localized LTEXT file Is missing)
+            SetGameLanguages();
+            
+
+            TranslateTo.ItemsSource = languages.Skip(1);
+            TranslateButton.IsEnabled = false;
+            AddLtextsToCurrentFile.IsEnabled = false;
+            //===================================================
+            //Add input for input language detection
+            //Add option for translation for any language or just sc4-supported languages
+        }
+
+        /// <summary>
+        /// Initialize the available in-game languages.
+        /// </summary>
+        private void SetGameLanguages() {
+            languages.Add(new LanguageItem(0x00, "", "Default")); //(used if localized LTEXT file is missing)
             languages.Add(new LanguageItem(0x01, "en-US", "US English"));
             languages.Add(new LanguageItem(0x02, "en-GB", "UK English"));
             languages.Add(new LanguageItem(0x03, "fr", "French"));
-            languages.Add(new LanguageItem(0x04, "de", "Gernam"));
-            languages.Add(new LanguageItem(0x05, "it", "Italina"));
+            languages.Add(new LanguageItem(0x04, "de", "German"));
+            languages.Add(new LanguageItem(0x05, "it", "Italian"));
             languages.Add(new LanguageItem(0x06, "es", "Spanish"));
             languages.Add(new LanguageItem(0x07, "nl", "Dutch"));
             languages.Add(new LanguageItem(0x08, "da", "Danish"));
@@ -71,11 +141,37 @@ namespace SC4LTEXTT {
             languages.Add(new LanguageItem(0x10, "pl", "Polish"));
             languages.Add(new LanguageItem(0x11, "zh-hans", "Simplified Chinese"));
             languages.Add(new LanguageItem(0x12, "zh-hant", "Traditional Chinese"));
-            languages.Add(new LanguageItem(0x13, "th", "Thai")); 
+            languages.Add(new LanguageItem(0x13, "th", "Thai"));
             languages.Add(new LanguageItem(0x14, "ko", "Korean"));
             languages.Add(new LanguageItem(0x23, "pt", "Portuguese (Brazilian)"));
+        }
 
-            TranslateTo.ItemsSource = languages.Skip(1);
+
+
+        private void ChooseFile_Click(object sender, RoutedEventArgs e) {
+            listitems.Clear();
+            OpenFileDialog dialog = new OpenFileDialog();
+            if (dialog.ShowDialog() == true) {
+                FileName.Content = Path.GetFileName(dialog.FileName);
+
+                _openFile = new DBPFFile(dialog.FileName);
+                List<DBPFEntry> ltexts = _openFile.GetEntries(DBPFTGI.LTEXT);
+                foreach (DBPFEntry entry in ltexts) {
+                    entry.Decode();
+                    listitems.Add(new ListBoxItem(entry, false));
+                }
+                ListofLTEXTs.ItemsSource = listitems;
+                originalTranslations = new string[ltexts.Count];
+                modifiedTranslations = new string[ltexts.Count];
+                ListofLTEXTs.Items.Refresh();
+
+                TranslateButton.IsEnabled = (TranslateTo.SelectedItem is not null);
+
+
+            } else {
+                return;
+            }
+
         }
 
 
@@ -89,7 +185,7 @@ namespace SC4LTEXTT {
             }
 
             try {
-                string targetLanguage = languages.Where(r => r.Offset == Convert.ToByte(TranslateTo.SelectedItem.ToString()?.Substring(2, 2) )).First().ISO;
+                string targetLanguage = languages.Where(r => r.Offset == _selectedLanguageOffset).First().ISO;
                 string inputText = TranslationInput.Text;
 
                 //Response<IReadOnlyList<TranslatedTextItem>> response = await client.TranslateAsync(targetLanguage, inputText).ConfigureAwait(false);
@@ -107,13 +203,21 @@ namespace SC4LTEXTT {
                 //output = output.Remove(output.Length - 1);
                 //output = "to=en-US&to=de&to=es&to=it";
 
+
+                //https://learn.microsoft.com/en-us/azure/ai-services/translator/language-support#translation
                 Response<IReadOnlyList<TranslatedTextItem>> response = client.Translate(targetLanguage, inputText);
                 IReadOnlyList<TranslatedTextItem> translations = response.Value;
                 TranslatedTextItem? translation = translations.FirstOrDefault();
 
 
                 TranslationOutput.Text = translation?.Translations?.FirstOrDefault().Text;
-                translatedTexts[selectedIndex] = TranslationOutput.Text;
+                originalTranslations[_selectedIndex] = TranslationOutput.Text;
+                modifiedTranslations[_selectedIndex] = TranslationOutput.Text;
+
+                //Update formatting of the item in the listbox
+                listitems[_selectedIndex].IsTranslated = true;
+                ListofLTEXTs.Items.Refresh();
+
 
                 //Console.WriteLine($"Detected languages of the input text: {translation?.DetectedLanguage?.Language} with score: {translation?.DetectedLanguage?.Score}.");
                 //Console.WriteLine($"Text was translated to: '{translation?.Translations?.FirstOrDefault().To}' and the result is: '{translation?.Translations?.FirstOrDefault()?.Text}'.");
@@ -126,35 +230,42 @@ namespace SC4LTEXTT {
 
 
         private void ListofLTEXTs_OnSelectionChanged(object sender, SelectionChangedEventArgs e) {
-            DBPFEntryLTEXT? selectedItem = (DBPFEntryLTEXT) ListofLTEXTs.SelectedItems[0];
-            if (selectedItem is not null) {
-                selectedIndex = (int) selectedItem.IndexPos;
-                TranslationInput.Text = selectedItem.Text;
-                TranslationOutput.Text = translatedTexts[selectedIndex];
+            if (ListofLTEXTs.SelectedItem is not null ) {originalTranslations[_selectedIndex] = TranslationOutput.Text;
+                ListBoxItem? selectedItem = (ListBoxItem) ListofLTEXTs.SelectedItem;
+                _selectedIndex = ListofLTEXTs.SelectedIndex;
+                TranslationInput.Text = selectedItem.Entry.Text;
+                TranslationOutput.Text = modifiedTranslations[_selectedIndex];
             }
         }
 
 
 
-        private void ChooseFile_Click(object sender, RoutedEventArgs e) {
-            OpenFileDialog dialog = new OpenFileDialog();
-            if (dialog.ShowDialog() == true) {
-                FileName.Content = Path.GetFileName(dialog.FileName);
-
-                dbpf = new DBPFFile(dialog.FileName);
-                ltexts = dbpf.GetEntries(DBPFTGI.LTEXT);
-                foreach (DBPFEntry entry in ltexts) {
-                    entry.Decode();
-                }
-                ListofLTEXTs.ItemsSource = ltexts;
-                //translatedTexts = new List<string>(ltexts.Count);
-                translatedTexts = new string[ltexts.Count];
+        private void RevertChanges_Click(object sender, RoutedEventArgs e) {
+            TranslationOutput.Text = originalTranslations[_selectedIndex];
+        }
 
 
-            } else {
-                return;
-            }
-            
+
+        /// <summary>
+        /// Save the modified translations when focus to the output textbox is lost
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void TranslationOutput_LostFocus(object sender, RoutedEventArgs e) {
+            modifiedTranslations[_selectedIndex] = TranslationOutput.Text;
+        }
+
+
+
+        private void TranslateTo_SelectionChanged(object sender, SelectionChangedEventArgs e) {
+            _selectedLanguageOffset = Convert.ToByte(TranslateTo.SelectedItem.ToString()?.Substring(2, 2), 16);
+            TranslateButton.IsEnabled = true;
+        }
+
+
+
+        private void SaveLtextsToNewFile_Click(object sender, RoutedEventArgs e) {
+
         }
     }
 }

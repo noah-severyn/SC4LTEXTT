@@ -3,17 +3,30 @@
 		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 		xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
 		xmlns:local="clr-namespace:SC4LTEXTT"
-		Title="MainWindow"
-		Height="550"
-		Width="800">
+		Icon="img/fluent--translate-auto-24-regular.png"
+		Title="SC4 LTEXT Translator"
+		Height="700"
+		MinHeight="400"
+		Width="1000"
+		MinWidth="790">
 	<Grid>
 		<Grid.ColumnDefinitions>
-			<ColumnDefinition Width="100" />
-			<ColumnDefinition Width="250" />
+			<ColumnDefinition Width="100"
+							  MinWidth="90" />
+			<ColumnDefinition Width="250"
+							  MinWidth="250" />
 			<ColumnDefinition Width="*" />
 		</Grid.ColumnDefinitions>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="40"
+						   MinHeight="40" />
+			<RowDefinition Height="*" />
+		</Grid.RowDefinitions>
 
+		<!-- Main Grid: Column 1 -->
 		<Button x:Name="ChooseFile"
+				Grid.Row="0"
+				Grid.Column="0"
 				Content="Choose File"
 				HorizontalAlignment="Left"
 				Margin="10,10,0,0"
@@ -24,75 +37,157 @@
 		<Label x:Name="FileName"
 			   Content=""
 			   Margin="0,0,10,0"
+			   Grid.Row="0"
 			   Grid.Column="1"
 			   Height="40"
 			   VerticalAlignment="Top"
 			   VerticalContentAlignment="Center"
 			   FontSize="11" />
-
 		<ListBox x:Name="ListofLTEXTs"
 				 Grid.Column="0"
+				 Grid.Row="1"
 				 Grid.ColumnSpan="2"
 				 Width="330"
 				 SelectionMode="Single"
 				 SelectionChanged="ListofLTEXTs_OnSelectionChanged"
-				 Margin="10,40,0,10"
+				 Margin="10,0,0,10"
 				 HorizontalAlignment="Left">
 			<ListBox.ItemTemplate>
 				<DataTemplate>
-					<Grid>
-						<Grid.ColumnDefinitions>
-							<ColumnDefinition Width="40" />
-							<ColumnDefinition Width="*" />
-						</Grid.ColumnDefinitions>
-						<Label Grid.Column="0"
-							   Content="{Binding Path=IndexPos}" />
-						<Label Grid.Column="1"
-							   Content="{Binding Path=TGI}" />
-					</Grid>
+					<StackPanel 
+						Width="320"
+						Margin="0"
+						Orientation="Horizontal"
+									Background="{Binding Path= BackColor}"
+									Grid.ColumnSpan="2">
+							<Label Grid.Column="0"
+								   Content="{Binding Path=Entry.IndexPos}" />
+							<Label Grid.Column="1"
+								   Content="{Binding Path=Entry.TGI}"
+								   Foreground="{Binding Path=ForeColor}" />
+						</StackPanel>
 				</DataTemplate>
 			</ListBox.ItemTemplate>
 		</ListBox>
 
-		<!-- Column 2 -->
-		<StackPanel Grid.Column="2">
-			<Border BorderBrush="Black"
+		<!-- Main Grid: Column 2 -->
+		<Grid Grid.Column="2"
+			  Grid.Row="1">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="240" />
+				<ColumnDefinition Width="*" />
+				<ColumnDefinition Width="30" />
+			</Grid.ColumnDefinitions>
+			<Grid.RowDefinitions>
+				<RowDefinition Height="20"
+							   MinHeight="20" />
+				<RowDefinition Height="*" />
+				<RowDefinition Height="30"
+							   MinHeight="20" />
+				<RowDefinition Height="30"
+							   MinHeight="30" />
+				<RowDefinition Height="*" />
+				<RowDefinition Height="40"
+							   MinHeight="40" />
+			</Grid.RowDefinitions>
+
+			<Label Grid.Row="0"
+				   Grid.Column="0"
+				   Content="Translation _Input"
+				   Target="{Binding ElementName=TranslationInput}"
+				   VerticalContentAlignment="Center"
+				   Padding="0"
+				   Margin="10,0"
+				   FontSize="11" />
+			<Border Grid.Row="1"
+					Grid.Column="0"
+					Grid.ColumnSpan="3"
+					BorderBrush="Black"
 					BorderThickness=".5"
-					Margin="10"
-					VerticalAlignment="Top"
-					Height="200">
+					Margin="10,0,10,10">
 				<TextBox x:Name="TranslationInput"
-						   TextWrapping="Wrap"
-						 IsReadOnly="True"/>
+						 TextWrapping="Wrap"
+						 IsReadOnly="True"
+						 FontFamily="Consolas"/>
 			</Border>
 
 			<ComboBox x:Name="TranslateTo"
-					 Width="220"
-					 Height="20"
-					 Margin="10,0,0,0"
-					 HorizontalAlignment="Left"
-					 VerticalAlignment="Top" />
+					  Grid.Row="2"
+					  Grid.Column="0"
+					  Width="220"
+					  Margin="10,0"
+					  VerticalContentAlignment="Center"
+					  SelectionChanged="TranslateTo_SelectionChanged" />
 			<Button x:Name="TranslateButton"
+					Grid.Row="2"
+					Grid.Column="1"
 					Content="Translate"
-					Margin="10,0,10,0"
+					Margin="10,0"
 					Click="TranslateText_Click"
-					VerticalAlignment="Top" />
-			<Border BorderBrush="Black"
-					BorderThickness=".5"
-					Margin="10"
 					VerticalAlignment="Top"
-					Height="200">
+					Height="30"
+					MaxWidth="150" />
+			<Label Grid.Row="3"
+				   Grid.Column="0"
+				   Content="Translation _Output"
+				   Target="{Binding ElementName=TranslationOutput}"
+				   Padding="0"
+				   Margin="10,10,0,0"
+				   VerticalContentAlignment="Center"
+				   FontSize="11" />
+			<Border Grid.Row="4"
+					Grid.Column="0"
+					Grid.ColumnSpan="2"
+					BorderBrush="Black"
+					BorderThickness=".5"
+					Margin="10,0,10,10">
 				<TextBox x:Name="TranslationOutput"
-						 HorizontalAlignment="Left"
-						 VerticalAlignment="Top"
-						 Height="200"
-						 Width="430"
-						 TextWrapping="Wrap"/>
+						 TextWrapping="Wrap"
+						 LostFocus="TranslationOutput_LostFocus" />
 			</Border>
 
-		</StackPanel>
+			<!-- Translate Grid: Column 3 -->
+			<Button x:Name="RevertChanges"
+					Grid.Row="4"
+					Grid.Column="3"
+					Height="20"
+					Margin="0,0,5,0"
+					Padding="2"
+					ToolTip="Revert Changes"
+					VerticalAlignment="Top"
+					Click="RevertChanges_Click">
+				<Image Source="img/fluent--arrow-undo-24-regular.png" />
+			</Button>
 
-
+			<!-- Translate Grid: Row 6 -->
+			<StackPanel Orientation="Horizontal"
+						Grid.Column="0"
+						Grid.Row="6"
+						Grid.ColumnSpan="2"
+						Margin="10,0">
+				<Button x:Name="AddLtextToFile"
+						Width="180"
+						Margin="0,0,0,10">
+					<StackPanel Orientation="Horizontal">
+						<Image Source="img/fluent--stack-add-24-regular.png"
+							   Margin="4" />
+						<Label VerticalContentAlignment="Center"
+							   Content="Add LTEXTs to current file" />
+					</StackPanel>
+				</Button>
+				<Button x:Name="SaveAllLtexts"
+						Width="180"
+						Margin="10,0,0,10">
+					<StackPanel Orientation="Horizontal">
+						<Image Source="img/fluent--stack-arrow-forward-24-regular.png"
+							   Margin="4" />
+						<Label VerticalContentAlignment="Center"
+							   Content="Save LTEXTs to new file" />
+					</StackPanel>
+				</Button>
+			</StackPanel>
+			
+		</Grid>
 
 	</Grid>
 </Window>
