@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -9,13 +10,9 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using csDBPF;
 using csDBPF.Entries;
-using System.IO;
 using Azure;
 using Azure.AI.Translation.Text;
-using System.Collections.ObjectModel;
 using Microsoft.Win32;
-using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 
 //<Window x:Class="SC4LTEXTT.MainWindow"
 namespace SC4LTEXTT {
@@ -263,9 +260,36 @@ namespace SC4LTEXTT {
         }
 
 
-
+        /// <summary>
+        /// Write the translated LTEXT subfiles to a new file.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void SaveLtextsToNewFile_Click(object sender, RoutedEventArgs e) {
+            File.Delete("C:\\Users\\Administrator\\Documents\\SimCity 4\\Plugins\\translations.dat");
+            string saveAsPath = "C:\\Users\\Administrator\\Documents\\SimCity 4\\Plugins\\translations.dat";
+            //string saveAsPath = string.Empty;
+            //OpenFileDialog dialog = new OpenFileDialog();
+            //if (dialog.ShowDialog() == true) {
+            //    saveAsPath = dialog.FileName;
+            //} else {
+            //    return;
+            //}
 
+            DBPFEntryLTEXT newEntry;
+            DBPFFile newDBPF = new DBPFFile(saveAsPath);
+            ListBoxItem item;
+            for (int idx = 0; idx < listitems.Count; idx++) {
+                item = listitems[idx];
+                if (item.IsTranslated) {
+                    newEntry = new DBPFEntryLTEXT(new TGI((uint) item.Entry.TGI.TypeID, (uint) item.Entry.TGI.GroupID + _selectedLanguageOffset, (uint) item.Entry.TGI.InstanceID), modifiedTranslations[idx]);
+                    newDBPF.AddEntry(newEntry);
+                }
+            }
+            //WRITING WRONG OFFSET IN THE DBPF FILE HEADER
+
+            newDBPF.EncodeAllEntries();
+            newDBPF.Save();
         }
     }
 }
