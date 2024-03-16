@@ -174,7 +174,7 @@ namespace SC4LTEXTT {
 
 
         private void TranslateText_Click(object sender, RoutedEventArgs e) {
-            AzureKeyCredential credential = new(File.ReadAllText("C:\\source\\repos\\AzureTranslateAPIKey.txt"));
+            AzureKeyCredential credential = new(Credentials.ApiKey);
             TextTranslationClient client = new(credential, "global");
 
             if (TranslateTo.SelectedItem is null) {
