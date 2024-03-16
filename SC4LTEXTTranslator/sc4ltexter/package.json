@@ -1,0 +1,20 @@
+{
+    "name": "sc4ltexter",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": ">=0.9.0-pre.1"
+    },
+    "publisher": "severynm",
+    "contributes": {
+        "languages": [{
+            "id": "sc4ltexter",
+            "aliases": ["SC4LTEXTer", "SC4LLTexter"],
+            "extensions": [".ltext",".ltexter"]
+        }],
+        "grammars": [{
+            "language": "sc4ltexter",
+            "scopeName": "source.sc4ltexter",
+            "path": "./syntaxes/sc4ltexter.plist"
+        }]
+    }
+}
