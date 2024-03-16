@@ -39,6 +39,7 @@
 			   Margin="0,0,10,0"
 			   Grid.Row="0"
 			   Grid.Column="1"
+			   Grid.ColumnSpan="2"
 			   Height="40"
 			   VerticalAlignment="Top"
 			   VerticalContentAlignment="Center"
@@ -76,7 +77,7 @@
 			<Grid.ColumnDefinitions>
 				<ColumnDefinition Width="240" />
 				<ColumnDefinition Width="*" />
-				<ColumnDefinition Width="30" />
+				<ColumnDefinition Width="80" />
 			</Grid.ColumnDefinitions>
 			<Grid.RowDefinitions>
 				<RowDefinition Height="20"
@@ -137,7 +138,7 @@
 				   FontSize="11" />
 			<Border Grid.Row="4"
 					Grid.Column="0"
-					Grid.ColumnSpan="2"
+					Grid.ColumnSpan="3"
 					BorderBrush="Black"
 					BorderThickness=".5"
 					Margin="10,0,10,10">
@@ -148,15 +149,19 @@
 
 			<!-- Translate Grid: Column 3 -->
 			<Button x:Name="RevertChanges"
-					Grid.Row="4"
+					Grid.Row="3"
 					Grid.Column="3"
 					Height="20"
-					Margin="0,0,5,0"
+					Margin="0,5,10,0"
 					Padding="2"
 					ToolTip="Revert Changes"
 					VerticalAlignment="Top"
 					Click="RevertChanges_Click">
-				<Image Source="img/fluent--arrow-undo-24-regular.png" />
+				<StackPanel Orientation="Horizontal">
+					<Image Source="img/fluent--arrow-undo-24-regular.png" />
+					<TextBlock Margin="10,-3,0,0" Text="Revert" Height="13" ToolTip="Reset text to default"/>
+				</StackPanel>
+				
 			</Button>
 
 			<!-- Translate Grid: Row 6 -->

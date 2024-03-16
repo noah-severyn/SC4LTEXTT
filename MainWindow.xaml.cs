@@ -103,15 +103,15 @@ namespace SC4LTEXTT {
         private string[] modifiedTranslations = []; //Stores the user-modified translation output
 
 
-        public MainWindow() {
-            Title = "SC4 LTEXT Translator - " + releaseVersion.ToString();
+        public MainWindow() { 
             InitializeComponent();
             SetGameLanguages();
-            
+            Title = "SC4 LTEXT Translator - " + releaseVersion.ToString();
 
             TranslateTo.ItemsSource = languages.Skip(1);
             TranslateButton.IsEnabled = false;
             AddLtextsToCurrentFile.IsEnabled = false;
+
             //===================================================
             //Add input for input language detection
             //Add option for translation for any language or just sc4-supported languages
@@ -266,15 +266,15 @@ namespace SC4LTEXTT {
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void SaveLtextsToNewFile_Click(object sender, RoutedEventArgs e) {
-            File.Delete("C:\\Users\\Administrator\\Documents\\SimCity 4\\Plugins\\translations.dat");
-            string saveAsPath = "C:\\Users\\Administrator\\Documents\\SimCity 4\\Plugins\\translations.dat";
-            //string saveAsPath = string.Empty;
-            //OpenFileDialog dialog = new OpenFileDialog();
-            //if (dialog.ShowDialog() == true) {
-            //    saveAsPath = dialog.FileName;
-            //} else {
-            //    return;
-            //}
+            //File.Delete("C:\\Users\\Administrator\\Documents\\SimCity 4\\Plugins\\translations.dat");
+            //string saveAsPath = "C:\\Users\\Administrator\\Documents\\SimCity 4\\Plugins\\translations.dat";
+            string saveAsPath;
+            OpenFileDialog dialog = new OpenFileDialog();
+            if (dialog.ShowDialog() == true) {
+                saveAsPath = dialog.FileName;
+            } else {
+                return;
+            }
 
             DBPFEntryLTEXT newEntry;
             DBPFFile newDBPF = new DBPFFile(saveAsPath);
@@ -286,8 +286,6 @@ namespace SC4LTEXTT {
                     newDBPF.AddEntry(newEntry);
                 }
             }
-            //WRITING WRONG OFFSET IN THE DBPF FILE HEADER
-
             newDBPF.EncodeAllEntries();
             newDBPF.Save();
         }
