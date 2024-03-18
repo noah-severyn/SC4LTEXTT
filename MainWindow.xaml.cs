@@ -1,13 +1,7 @@
 ﻿using System.IO;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using csDBPF;
 using csDBPF.Entries;
 using Azure;
@@ -110,7 +104,6 @@ namespace SC4LTEXTT {
 
             TranslateTo.ItemsSource = languages.Skip(1);
             TranslateButton.IsEnabled = false;
-            AddLtextsToCurrentFile.IsEnabled = false;
 
             //===================================================
             //Add input for input language detection
@@ -266,28 +259,46 @@ namespace SC4LTEXTT {
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void SaveLtextsToNewFile_Click(object sender, RoutedEventArgs e) {
-            //File.Delete("C:\\Users\\Administrator\\Documents\\SimCity 4\\Plugins\\translations.dat");
-            //string saveAsPath = "C:\\Users\\Administrator\\Documents\\SimCity 4\\Plugins\\translations.dat";
             string saveAsPath;
-            OpenFileDialog dialog = new OpenFileDialog();
+            SaveFileDialog dialog = new SaveFileDialog() {
+                AddExtension = true,
+                DefaultExt = ".dat",
+                Filter = "DAT Files|*.dat"
+            };
             if (dialog.ShowDialog() == true) {
                 saveAsPath = dialog.FileName;
+                if (File.Exists(saveAsPath)) {
+                    File.Delete(saveAsPath);
+                }
             } else {
                 return;
             }
 
-            DBPFEntryLTEXT newEntry;
+
             DBPFFile newDBPF = new DBPFFile(saveAsPath);
+            SaveLTEXTs(newDBPF);
+        }
+
+        private void AddLtextsToCurrentFile_Click(object sender, RoutedEventArgs e) {
+            if (_openFile is null) return;
+            SaveLTEXTs(_openFile);
+        }
+
+
+        private void SaveLTEXTs(DBPFFile file) {
+            if (file is null) return;
+            DBPFEntryLTEXT newEntry;
             ListBoxItem item;
             for (int idx = 0; idx < listitems.Count; idx++) {
                 item = listitems[idx];
                 if (item.IsTranslated) {
                     newEntry = new DBPFEntryLTEXT(new TGI((uint) item.Entry.TGI.TypeID, (uint) item.Entry.TGI.GroupID + _selectedLanguageOffset, (uint) item.Entry.TGI.InstanceID), modifiedTranslations[idx]);
-                    newDBPF.AddEntry(newEntry);
+                    file.AddEntry(newEntry);
                 }
             }
-            newDBPF.EncodeAllEntries();
-            newDBPF.Save();
+            file.EncodeAllEntries();
+            //file.
+            file.Save();
         }
     }
 }

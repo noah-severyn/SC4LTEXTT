@@ -172,7 +172,8 @@
 						Margin="10,0">
 				<Button x:Name="AddLtextsToCurrentFile"
 						Width="180"
-						Margin="0,0,0,10">
+						Margin="0,0,0,10"
+						Click="AddLtextsToCurrentFile_Click">
 					<StackPanel Orientation="Horizontal">
 						<Image Source="img/fluent--stack-add-24-regular.png"
 							   Margin="4" />
