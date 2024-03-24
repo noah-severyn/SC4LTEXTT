@@ -44,32 +44,36 @@
 			   VerticalAlignment="Top"
 			   VerticalContentAlignment="Center"
 			   FontSize="11" />
-		<ListBox x:Name="ListofLTEXTs"
+		<ListView x:Name="ListofLTEXTs"
 				 Grid.Column="0"
 				 Grid.Row="1"
 				 Grid.ColumnSpan="2"
-				 Width="330"
+				 Width="320"
 				 SelectionMode="Single"
 				 SelectionChanged="ListofLTEXTs_OnSelectionChanged"
 				 Margin="10,0,0,10"
-				 HorizontalAlignment="Left">
-			<ListBox.ItemTemplate>
+				  HorizontalAlignment="Left">
+			<ListView.ItemTemplate>
 				<DataTemplate>
-					<StackPanel 
-						Width="320"
-						Margin="0"
-						Orientation="Horizontal"
-									Background="{Binding Path= BackColor}"
-									Grid.ColumnSpan="2">
-							<Label Grid.Column="0"
-								   Content="{Binding Path=Entry.IndexPos}" />
-							<Label Grid.Column="1"
-								   Content="{Binding Path=Entry.TGI}"
-								   Foreground="{Binding Path=ForeColor}" />
-						</StackPanel>
+					<StackPanel
+								Margin="0"
+								Orientation="Horizontal"
+								Background="{Binding BackColor}"
+								Width="305"
+								Height="24">
+						<TextBlock Text="{Binding BaseEntry.IndexPos}" Width="30" VerticalAlignment="Center"/>
+						<TextBlock Text="{Binding BaseEntry.TGI}"
+								   Width="230"
+								   VerticalAlignment="Center" />
+						<TextBlock Text="{Binding ModifiedTranslations.Count}"
+								   VerticalAlignment="Center" />
+						<TextBlock Text="/18"
+								   Width="30"
+								   VerticalAlignment="Center"/>
+					</StackPanel>
 				</DataTemplate>
-			</ListBox.ItemTemplate>
-		</ListBox>
+			</ListView.ItemTemplate>
+		</ListView>
 
 		<!-- Main Grid: Column 2 -->
 		<Grid Grid.Column="2"
@@ -109,7 +113,7 @@
 				<TextBox x:Name="TranslationInput"
 						 TextWrapping="Wrap"
 						 IsReadOnly="True"
-						 FontFamily="Consolas"/>
+						 FontFamily="Consolas" />
 			</Border>
 
 			<ComboBox x:Name="TranslateTo"
@@ -136,6 +140,7 @@
 				   Margin="10,10,0,0"
 				   VerticalContentAlignment="Center"
 				   FontSize="11" />
+
 			<Border Grid.Row="4"
 					Grid.Column="0"
 					Grid.ColumnSpan="3"
@@ -159,9 +164,12 @@
 					Click="RevertChanges_Click">
 				<StackPanel Orientation="Horizontal">
 					<Image Source="img/fluent--arrow-undo-24-regular.png" />
-					<TextBlock Margin="10,-3,0,0" Text="Revert" Height="13" ToolTip="Reset text to default"/>
+					<TextBlock Margin="10,-3,0,0"
+							   Text="Revert"
+							   Height="13"
+							   ToolTip="Reset text to default" />
 				</StackPanel>
-				
+
 			</Button>
 
 			<!-- Translate Grid: Row 6 -->
@@ -193,7 +201,7 @@
 					</StackPanel>
 				</Button>
 			</StackPanel>
-			
+
 		</Grid>
 
 	</Grid>
