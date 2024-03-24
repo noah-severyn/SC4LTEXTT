@@ -67,14 +67,14 @@ namespace SC4LTEXTT {
             public Dictionary<byte, string> ModifiedTranslations { get; set; } //Stores the user-modified translation output
             public SolidColorBrush BackColor { get; set; }
 
-            private bool _isTranslated; //Whether this item has been translated to the current language.
-            public bool IsTranslated {
-                get { return _isTranslated; }
+            private bool _hasTranslations; //Whether this item has been translated to the current language.
+            public bool HasTranslations {
+                get { return _hasTranslations; }
                 set {
-                    _isTranslated = value;
+                    _hasTranslations = value;
                     if (ModifiedTranslations.Count == 18) {
                         BackColor = Brushes.YellowGreen;
-                    } else if (_isTranslated) {
+                    } else if (_hasTranslations) {
                         BackColor = Brushes.LightGoldenrodYellow;
                     } else {
                         BackColor = Brushes.Transparent;
@@ -83,18 +83,18 @@ namespace SC4LTEXTT {
             }
 
 
-            public ListBoxItem(DBPFEntry entry, bool isTranslated) {
+            public ListBoxItem(DBPFEntry entry, bool hasTranslated) {
                 BaseEntry = (DBPFEntryLTEXT) entry;
                 OriginalTranslations = new Dictionary<byte, string>();
                 ModifiedTranslations = new Dictionary<byte, string>();
-                _isTranslated = isTranslated;
+                _hasTranslations = hasTranslated;
                 BackColor = Brushes.Transparent;
             }
-            public ListBoxItem(DBPFEntryLTEXT entry, bool isTranslated) {
+            public ListBoxItem(DBPFEntryLTEXT entry, bool hasTranslated) {
                 BaseEntry = entry;
                 OriginalTranslations = new Dictionary<byte, string>();
                 ModifiedTranslations = new Dictionary<byte, string>();
-                _isTranslated = isTranslated;
+                _hasTranslations = hasTranslated;
                 BackColor = Brushes.Transparent;
             }
         }
@@ -159,12 +159,6 @@ namespace SC4LTEXTT {
                 ListofLTEXTs.Items.Refresh();
 
                 _selectedListBoxItem = (ListBoxItem) ListofLTEXTs.SelectedItem;
-                //_originalTranslations.Clear();
-                //_modifiedTranslations.Clear();
-                //for (int idx = 0; idx < _listOfLTEXTs.Count; idx++) {
-                //    _originalTranslations.Add(idx, new Dictionary<byte, string>());
-                //    _modifiedTranslations.Add(idx, new Dictionary<byte, string>());
-                //}
             } else {
                 return;
             }
@@ -213,18 +207,7 @@ namespace SC4LTEXTT {
 
                 _selectedListBoxItem.OriginalTranslations.Add(_langOffset, translatedText);
                 _selectedListBoxItem.ModifiedTranslations.Add(_langOffset, translatedText);
-                _selectedListBoxItem.IsTranslated = true;
-                //TGI baseTGI = _listBoxItems[_selectedIndex].BaseEntry.TGI;
-
-                //Look for the desired translation in the selected item; if not found add it, and if found update it
-                //bool found = _listBoxItems[_selectedIndex].ModifiedTranslations.TryGetValue(_selectedLangOffset, out DBPFEntryLTEXT? translatedEntry);
-
-                //if (!found) {
-                //    _listBoxItems[_selectedIndex].ModifiedTranslations.Add(_selectedLangOffset, new DBPFEntryLTEXT(new TGI((uint) baseTGI.TypeID, (uint) baseTGI.GroupID + _selectedLangOffset, (uint) baseTGI.InstanceID), _modifiedTranslations[_selectedIndex]));
-                //    _listBoxItems[_selectedIndex].Status = _listBoxItems[_selectedIndex].ModifiedTranslations.Count + "/18";
-                //} else if (translatedEntry is not null) {
-                //    translatedEntry.Text = _modifiedTranslations[_selectedIndex];
-                //}
+                _selectedListBoxItem.HasTranslations = true;
 
                 TranslationOutput.Text = translatedText;
                 ListofLTEXTs.Items.Refresh();
@@ -265,10 +248,6 @@ namespace SC4LTEXTT {
         private void TranslationOutput_LostFocus(object sender, RoutedEventArgs e) {
             _selectedListBoxItem.ModifiedTranslations[_langOffset] = TranslationOutput.Text;
 
-            //bool found = _listBoxItems[_selectedIndex].ModifiedTranslations.TryGetValue(_selectedLangOffset, out DBPFEntryLTEXT? translatedEntry);
-            //if (found && translatedEntry is not null) {
-            //    translatedEntry.Text = _modifiedTranslations[_selectedIndex];
-            //}
             ListofLTEXTs.Items.Refresh();
         }
 
@@ -280,7 +259,7 @@ namespace SC4LTEXTT {
 
             //Refresh the listbox to highlight all the items translated in the chosen language
             foreach (ListBoxItem item in _listBoxItems) {
-                item.IsTranslated = item.ModifiedTranslations.ContainsKey(_langOffset);
+                item.HasTranslations = item.ModifiedTranslations.ContainsKey(_langOffset);
             }
             ListofLTEXTs.Items.Refresh();
 
@@ -334,10 +313,16 @@ namespace SC4LTEXTT {
         private void SaveLTEXTs(DBPFFile file) {
             if (file is null) return;
             ListBoxItem item;
+            DBPFEntryLTEXT newEntry;
+            
             for (int idx = 0; idx < _listBoxItems.Count; idx++) {
                 item = _listBoxItems[idx];
-                if (item.IsTranslated) {
-                    //file.AddEntries(item.ModifiedTranslations.Values);
+                if (item.HasTranslations) {
+                    TGI baseTGI = item.BaseEntry.TGI;
+                    foreach (byte offset in item.ModifiedTranslations.Keys) {
+                        newEntry = new DBPFEntryLTEXT(new TGI((uint) baseTGI.TypeID, (uint) baseTGI.GroupID + offset, (uint) baseTGI.InstanceID), item.ModifiedTranslations[offset]);
+                        file.AddEntry(newEntry);
+                    }
                 }
             }
             if (file.CountEntries() > 0) {
