@@ -126,7 +126,7 @@
 			<Button x:Name="TranslateButton"
 					Grid.Row="2"
 					Grid.Column="1"
-					Content="Translate"
+					Content="Fetch Translation"
 					Margin="10,0"
 					Click="TranslateText_Click"
 					VerticalAlignment="Top"

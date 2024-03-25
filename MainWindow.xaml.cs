@@ -7,13 +7,15 @@ using csDBPF.Entries;
 using Azure;
 using Azure.AI.Translation.Text;
 using Microsoft.Win32;
+using System;
+using System.Text;
 
 namespace SC4LTEXTT {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window {
-        internal readonly Version releaseVersion = new Version(0, 2);
+        internal readonly Version releaseVersion = new Version(0, 3);
         //private string[] originalTranslations = []; //Stores the output returned from Azure
         //private string[] modifiedTranslations = []; //Stores the user-modified translation output
         //private Dictionary<int, Dictionary<byte, string>> _originalTranslations = []; 
@@ -23,9 +25,8 @@ namespace SC4LTEXTT {
         private readonly List<ListBoxItem> _listBoxItems = new List<ListBoxItem>();
         private DBPFFile? _selectedFile;
         private ListBoxItem _selectedListBoxItem;
-        private int _selectedIndex;
         private byte _langOffset;
-
+       // private List<string> _log;
 
 
         /// <summary>
@@ -109,6 +110,7 @@ namespace SC4LTEXTT {
             TranslateButton.IsEnabled = false;
 
             _selectedListBoxItem = (ListBoxItem) ListofLTEXTs.SelectedItem;
+            //_log = new List<string>();
             //===================================================
             //Add input for input language detection
             //Add option for translation for any language or just sc4-supported languages
@@ -144,33 +146,43 @@ namespace SC4LTEXTT {
 
         private void ChooseFile_Click(object sender, RoutedEventArgs e) {
             _listBoxItems.Clear();
-            OpenFileDialog dialog = new OpenFileDialog();
-            if (dialog.ShowDialog() == true) {
-                FileName.Content = Path.GetFileName(dialog.FileName);
+            ListofLTEXTs.Items.Refresh();
+            try {
+                OpenFileDialog dialog = new OpenFileDialog();
+                if (dialog.ShowDialog() == true) {
+                    FileName.Content = Path.GetFileName(dialog.FileName);
 
-                _selectedFile = new DBPFFile(dialog.FileName);
-                List<DBPFEntry> ltexts = _selectedFile.GetEntries(DBPFTGI.LTEXT);
-                foreach (DBPFEntry entry in ltexts) {
-                    entry.Decode();
-                    _listBoxItems.Add(new ListBoxItem(entry, false));
+                    _selectedFile = new DBPFFile(dialog.FileName);
+                    List<DBPFEntry> ltexts = _selectedFile.GetEntries(DBPFTGI.LTEXT);
+                    foreach (DBPFEntry entry in ltexts) {
+                        entry.Decode();
+                        _listBoxItems.Add(new ListBoxItem(entry, false));
+                    }
+                    TranslateButton.IsEnabled = (TranslateTo.SelectedItem is not null);
+                    ListofLTEXTs.ItemsSource = _listBoxItems;
+                    ListofLTEXTs.Items.Refresh();
+
+                    _selectedListBoxItem = (ListBoxItem) ListofLTEXTs.SelectedItem;
+                } else {
+                    return;
                 }
-                TranslateButton.IsEnabled = (TranslateTo.SelectedItem is not null);
-                ListofLTEXTs.ItemsSource = _listBoxItems;
-                ListofLTEXTs.Items.Refresh();
-
-                _selectedListBoxItem = (ListBoxItem) ListofLTEXTs.SelectedItem;
-            } else {
-                return;
             }
-
+            catch (Exception ex) {
+                ListofLTEXTs.Items.Refresh();
+                if (_selectedFile is not null) {
+                    TranslationInput.Text = $"Error: Could not decode LTEXT file in `{_selectedFile.File.Name}` at position {_listBoxItems.Count}. File load terminated.\r\n{ex.Message}\r\n{ex.StackTrace}";
+                }
+            }
         }
 
 
 
         private void TranslateText_Click(object sender, RoutedEventArgs e) {
             //To minimize hits to the API don't retranslate an item if it has already been translated --- I store this as an "original translation" so it can be reset to "default" later on if needed
-            _listBoxItems[_selectedIndex].OriginalTranslations.TryGetValue(_langOffset, out string? translatedText);
+            //_log.Add("Operation: TranslateText_Click");
+            _selectedListBoxItem.ModifiedTranslations.TryGetValue(_langOffset, out string? translatedText);
             if (TranslateTo.SelectedItem is null || translatedText is not null) {
+                //_log.Add("Translation already found. Operation aborted.");
                 return;
             }
 
@@ -180,6 +192,7 @@ namespace SC4LTEXTT {
             try {
                 string targetLanguage = _languages.Where(r => r.Offset == _langOffset).First().ISO;
                 string inputText = TranslationInput.Text;
+                //_log.Add("Starting translation with text: " + inputText);
 
                 //Response<IReadOnlyList<TranslatedTextItem>> response = await client.TranslateAsync(targetLanguage, inputText).ConfigureAwait(false);
                 //StringBuilder alllLangs = new StringBuilder();
@@ -202,7 +215,10 @@ namespace SC4LTEXTT {
                 IReadOnlyList<TranslatedTextItem> translations = response.Value;
                 TranslatedTextItem? translation = translations.FirstOrDefault();
                 translatedText = translation.Translations.FirstOrDefault().Text;
-
+                if (translatedText is null) {
+                    //_log.Add("Translation output is null. Operation aborted");
+                    return;
+                }
 
 
                 _selectedListBoxItem.OriginalTranslations.Add(_langOffset, translatedText);
@@ -214,6 +230,8 @@ namespace SC4LTEXTT {
             }
             catch (RequestFailedException exception) {
                 TranslationOutput.Text = $"{exception.ErrorCode}: {exception.Message}";
+            } catch (Exception ex) {
+                TranslationOutput.Text = $"Error: {ex.Message}\r\n {ex.StackTrace}";
             }
         }
 
@@ -222,7 +240,6 @@ namespace SC4LTEXTT {
         private void ListofLTEXTs_OnSelectionChanged(object sender, SelectionChangedEventArgs e) {
             if (ListofLTEXTs.SelectedItem is not null ) {
                 _selectedListBoxItem = (ListBoxItem) ListofLTEXTs.SelectedItem;
-                _selectedIndex = ListofLTEXTs.SelectedIndex;
 
 
                 TranslationInput.Text = _selectedListBoxItem.BaseEntry.Text;
@@ -246,9 +263,21 @@ namespace SC4LTEXTT {
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void TranslationOutput_LostFocus(object sender, RoutedEventArgs e) {
-            _selectedListBoxItem.ModifiedTranslations[_langOffset] = TranslationOutput.Text;
+            if (_selectedListBoxItem is not null) {
+                if (_langOffset == 0x0) {
+                    MessageBox.Show("Please choose a language to save this translation as!", "No Language Chosen", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                _selectedListBoxItem.ModifiedTranslations[_langOffset] = TranslationOutput.Text;
 
-            ListofLTEXTs.Items.Refresh();
+                //if the original translation is not found, then the user manually translated instead of fetching the AI translation
+                bool origFound = _selectedListBoxItem.OriginalTranslations.TryGetValue(_langOffset, out string? translatedText);
+                if (!origFound) {
+                    _selectedListBoxItem.OriginalTranslations.Add(_langOffset, TranslationOutput.Text);
+                    _selectedListBoxItem.HasTranslations = true;
+                }
+                ListofLTEXTs.Items.Refresh();
+            }
         }
 
 
@@ -264,13 +293,13 @@ namespace SC4LTEXTT {
             ListofLTEXTs.Items.Refresh();
 
 
-
             //Refresh the output with the chosen language
-            bool translationFound = _selectedListBoxItem.ModifiedTranslations.TryGetValue(_langOffset, out string? translatedText);
-            if (translationFound) {
-                TranslationOutput.Text = translatedText;
+            if (_selectedListBoxItem is not null) {
+                bool translationFound = _selectedListBoxItem.ModifiedTranslations.TryGetValue(_langOffset, out string? translatedText);
+                if (translationFound) {
+                    TranslationOutput.Text = translatedText;
+                }
             }
-
             TranslateButton.IsEnabled = true;
         }
 
@@ -282,6 +311,10 @@ namespace SC4LTEXTT {
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void SaveLtextsToNewFile_Click(object sender, RoutedEventArgs e) {
+            //_log.Add("=============== Log Start ===============");
+            //_log.Add("Time: " + DateTime.Now);
+            //_log.Add("Operation: SaveLtextsToNewFile_Click");
+            //_log.Add("BaseFile: " + _selectedFile.File.Name);
             string saveAsPath;
             SaveFileDialog dialog = new SaveFileDialog() {
                 AddExtension = true,
@@ -290,14 +323,21 @@ namespace SC4LTEXTT {
             };
             if (dialog.ShowDialog() == true) {
                 saveAsPath = dialog.FileName;
+                //_log.Add("File chosen: " + saveAsPath);
                 if (File.Exists(saveAsPath)) {
+                    //_log.Add("Existing file with same name was found and deleted");
                     File.Delete(saveAsPath);
                 }
             } else {
+                //_log.Add("File dialog dismissed");
                 return;
             }
             DBPFFile newDBPF = new DBPFFile(saveAsPath);
+            //_log.Add("New DBPFFile created");
             SaveLTEXTs(newDBPF);
+            //_log.Add("Save operation compelete");
+            //File.WriteAllLines(Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "sc4ltextt log.txt")), _log.ToArray());
+            
         }
         /// <summary>
         /// Write the translated LTEXT subfiles to the current file.
@@ -311,23 +351,38 @@ namespace SC4LTEXTT {
 
 
         private void SaveLTEXTs(DBPFFile file) {
-            if (file is null) return;
-            ListBoxItem item;
-            DBPFEntryLTEXT newEntry;
-            
-            for (int idx = 0; idx < _listBoxItems.Count; idx++) {
-                item = _listBoxItems[idx];
-                if (item.HasTranslations) {
-                    TGI baseTGI = item.BaseEntry.TGI;
-                    foreach (byte offset in item.ModifiedTranslations.Keys) {
-                        newEntry = new DBPFEntryLTEXT(new TGI((uint) baseTGI.TypeID, (uint) baseTGI.GroupID + offset, (uint) baseTGI.InstanceID), item.ModifiedTranslations[offset]);
-                        file.AddEntry(newEntry);
+            //if (file is null) return;
+            //_log.Add("SaveLTEXTs subroutine started");
+            try {
+                ListBoxItem item;
+                DBPFEntryLTEXT newEntry;
+
+                for (int idx = 0; idx < _listBoxItems.Count; idx++) {
+                    //_log.Add("Parsing list box item " + idx);
+                    item = _listBoxItems[idx];
+                    if (item.HasTranslations) {
+                        //_log.Add($"{item.ModifiedTranslations.Count} translations found for list box item {idx} ({item.BaseEntry.TGI})");
+                        TGI baseTGI = item.BaseEntry.TGI;
+                        foreach (byte offset in item.ModifiedTranslations.Keys) {
+                            //_log.Add($"Parsing translation language offset of {offset}");
+                            newEntry = new DBPFEntryLTEXT(new TGI((uint) baseTGI.TypeID, (uint) baseTGI.GroupID + offset, (uint) baseTGI.InstanceID), item.ModifiedTranslations[offset]);
+                            //_log.Add($"Entry of offset {offset} created");
+                            file.AddEntry(newEntry);
+                            //_log.Add($"Entry {idx} added");
+                        }
+                    } else {
+                        //_log.Add($"No translations found for list box item {idx} ({item.BaseEntry.TGI})");
                     }
                 }
+                if (file.CountEntries() > 0) {
+                    file.EncodeAllEntries();
+                    //_log.Add("All entries encoded");
+                    file.Save();
+                    //_log.Add("DBPF file saved");
+                }
             }
-            if (file.CountEntries() > 0) {
-                file.EncodeAllEntries();
-                file.Save();
+            catch (Exception ex) {
+                TranslationOutput.Text = $"Error: {ex.Message}\r\n {ex.StackTrace}";
             }
         }
     }
