@@ -10,3 +10,8 @@ It is important to note that due to [reported issues](https://community.simtropo
 Numerous improvements to come.
 
 ![](/img/ProductImage.png)
+
+
+## System Requirements
+- .NET 8
+- Windows 10, version 1607 or newer
