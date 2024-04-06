@@ -44,35 +44,76 @@
 			   VerticalAlignment="Top"
 			   VerticalContentAlignment="Center"
 			   FontSize="11" />
-		<ListView x:Name="ListofLTEXTs"
+		<ListView x:Name="ListOfTranslations"
 				 Grid.Column="0"
 				 Grid.Row="1"
 				 Grid.ColumnSpan="2"
 				 Width="320"
 				 SelectionMode="Single"
-				 SelectionChanged="ListofLTEXTs_OnSelectionChanged"
+				  SelectionChanged="ListOfTranslations_OnSelectionChanged"
 				 Margin="10,0,0,10"
 				  HorizontalAlignment="Left">
+			<ListView.GroupStyle>
+				<GroupStyle>
+					<GroupStyle.ContainerStyle>
+						<Style TargetType="{x:Type GroupItem}">
+							<Setter Property="Template">
+								<Setter.Value>
+									<ControlTemplate>
+										<Expander IsExpanded="True">
+											<Expander.Header>
+												<StackPanel Orientation="Horizontal"
+															Margin="0">
+													<TextBlock Text="{Binding Name}"
+															   FontWeight="Bold"
+															   Foreground="DarkBlue"
+															   FontSize="12"
+															   Width="230"
+															   VerticalAlignment="Center" />
+													<TextBlock Text="{Binding ItemCount}"
+															   FontSize="14"
+															   Foreground="Green"
+															   FontWeight="Bold"
+															   Margin="10,0,0,0"
+															   VerticalAlignment="Center" />
+													<TextBlock Text="/18"
+															   FontSize="14"
+															   VerticalAlignment="Center" />
+												</StackPanel>
+											</Expander.Header>
+											<ItemsPresenter />
+										</Expander>
+									</ControlTemplate>
+								</Setter.Value>
+							</Setter>
+						</Style>
+					</GroupStyle.ContainerStyle>
+				</GroupStyle>
+			</ListView.GroupStyle>
 			<ListView.ItemTemplate>
 				<DataTemplate>
 					<StackPanel
 								Margin="0"
 								Orientation="Horizontal"
 								Background="{Binding BackColor}"
-								Width="305"
+								Width="300"
 								Height="24">
-						<TextBlock Text="{Binding BaseEntry.IndexPos}" Width="30" VerticalAlignment="Center"/>
-						<TextBlock Text="{Binding BaseEntry.TGI}"
+						<TextBlock Text="{Binding Language.Offset, StringFormat=0x{0:x2}}"
+								   VerticalAlignment="Center"
+								   Margin="20,0,0,0"/>
+						<TextBlock Text=" - "
+								   VerticalAlignment="Center" />
+						<TextBlock Text="{Binding Language.Desc}"
+								   Width="110"
+								   VerticalAlignment="Center" />
+						<TextBlock Text="{Binding ThisTGI.GroupID, StringFormat=0x{0:x8}}"
 								   Width="230"
 								   VerticalAlignment="Center" />
-						<TextBlock Text="{Binding ModifiedTranslations.Count}"
-								   VerticalAlignment="Center" />
-						<TextBlock Text="/18"
-								   Width="30"
-								   VerticalAlignment="Center"/>
 					</StackPanel>
 				</DataTemplate>
 			</ListView.ItemTemplate>
+			
+			
 		</ListView>
 
 		<!-- Main Grid: Column 2 -->
@@ -128,7 +169,7 @@
 					Grid.Column="1"
 					Content="Fetch Translation"
 					Margin="10,0"
-					Click="TranslateText_Click"
+					Click="FetchTranslation_Click"
 					VerticalAlignment="Top"
 					Height="30"
 					MaxWidth="150" />
