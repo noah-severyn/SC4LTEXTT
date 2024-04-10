@@ -7,13 +7,13 @@
 		Title="SC4 LTEXT Translator"
 		Height="700"
 		MinHeight="400"
-		Width="1000"
+		Width="1020"
 		MinWidth="790">
 	<Grid>
 		<Grid.ColumnDefinitions>
 			<ColumnDefinition Width="100"
 							  MinWidth="90" />
-			<ColumnDefinition Width="250"
+			<ColumnDefinition Width="260"
 							  MinWidth="250" />
 			<ColumnDefinition Width="*" />
 		</Grid.ColumnDefinitions>
@@ -48,7 +48,7 @@
 				 Grid.Column="0"
 				 Grid.Row="1"
 				 Grid.ColumnSpan="2"
-				 Width="320"
+				 Width="340"
 				 SelectionMode="Single"
 				  SelectionChanged="ListOfTranslations_OnSelectionChanged"
 				 Margin="10,0,0,10"
@@ -67,18 +67,16 @@
 													<TextBlock Text="{Binding Name}"
 															   FontWeight="Bold"
 															   Foreground="DarkBlue"
-															   FontSize="12"
-															   Width="230"
+															   FontSize="13"
+															   Width="240"
 															   VerticalAlignment="Center" />
 													<TextBlock Text="{Binding ItemCount}"
 															   FontSize="14"
 															   Foreground="Green"
 															   FontWeight="Bold"
-															   Margin="10,0,0,0"
-															   VerticalAlignment="Center" />
+															   Margin="10,0,0,0" />
 													<TextBlock Text="/18"
-															   FontSize="14"
-															   VerticalAlignment="Center" />
+															   FontSize="14" />
 												</StackPanel>
 											</Expander.Header>
 											<ItemsPresenter />
@@ -100,8 +98,9 @@
 								Height="24">
 						<TextBlock Text="{Binding Language.Offset, StringFormat=0x{0:x2}}"
 								   VerticalAlignment="Center"
-								   Margin="20,0,0,0"/>
-						<TextBlock Text=" - "
+								   Margin="20,0,0,0"
+								   Width="28"/>
+						<TextBlock Text="- "
 								   VerticalAlignment="Center" />
 						<TextBlock Text="{Binding Language.Desc}"
 								   Width="110"
