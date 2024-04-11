@@ -7,6 +7,7 @@ using Azure;
 using Azure.AI.Translation.Text;
 using Microsoft.Win32;
 using System.Windows.Data;
+using System.Linq;
 
 namespace SC4LTEXTT {
     /// <summary>
@@ -68,11 +69,11 @@ namespace SC4LTEXTT {
             /// </summary>
             public string DefaultTranslation { get; set; }
             /// <summary>
-            /// Contains the output returned from Azure translation.
+            /// Contains the output returned from Azure translation. Archived in case the user wants to revert any changes made to reduce calls to the API.
             /// </summary>
             public string AzureTranslation { get; set; }
             /// <summary>
-            /// Contains the user-modified translation output.
+            /// Contains the user-modified translation output. If this is non-blank then this item has been translated
             /// </summary>
             public string ModifiedTranslation { get; set; }
 
@@ -96,7 +97,7 @@ namespace SC4LTEXTT {
             FillGameLanguageList();
             Title = "SC4 LTEXT Translator - " + releaseVersion.ToString();
 
-            TranslateTo.ItemsSource = _languages.Skip(1);
+            TranslateTo.ItemsSource = _languages;
             TranslateButton.IsEnabled = false;
 
             _selectedListBoxItem = (TranslationItem) ListOfTranslations.SelectedItem;
@@ -169,32 +170,22 @@ namespace SC4LTEXTT {
                         lang = GetLanguage(offset);
                         defaultText = ((DBPFEntryLTEXT) allLTEXTs[baseIdx]).Text;
 
-                        _translationItems.Add(new TranslationItem(allLTEXTs[baseIdx].TGI, allLTEXTs[baseIdx].TGI, lang, defaultText, defaultText));
+                        _translationItems.Add(new TranslationItem(allLTEXTs[baseIdx].TGI, allLTEXTs[baseIdx].TGI, lang, defaultText));
                         if (translationIdx == allLTEXTs.Count) { break; }
                         while (allLTEXTs[translationIdx].TGI.GroupID - allLTEXTs[baseIdx].TGI.GroupID <= 0x23 && allLTEXTs[translationIdx].TGI.InstanceID == allLTEXTs[baseIdx].TGI.InstanceID) {
                             offset = allLTEXTs[translationIdx].TGI.GroupID - allLTEXTs[baseIdx].TGI.GroupID;
                             lang = GetLanguage(offset);
-                            _translationItems.Add(new TranslationItem(allLTEXTs[baseIdx].TGI, allLTEXTs[translationIdx].TGI, lang, defaultText: defaultText, modifiedText:((DBPFEntryLTEXT) allLTEXTs[translationIdx]).Text));
-                            
+                            _translationItems.Add(new TranslationItem(allLTEXTs[baseIdx].TGI, allLTEXTs[translationIdx].TGI, lang, defaultText, string.Empty, ((DBPFEntryLTEXT) allLTEXTs[translationIdx]).Text));
                             translationIdx++;
                         }
                         if (translationIdx - baseIdx > 1) {
                             baseIdx += translationIdx - 1;
-                        } else {
-                            baseIdx++;
                         }
                         
                     }
-                    ListOfTranslations.ItemsSource = _translationItems;
-
-                    
-                    
 
                     _selectedListBoxItem = (TranslationItem) ListOfTranslations.Items[0];
-                    TranslateButton.IsEnabled = (TranslateTo.SelectedItem is not null);
-                    ListOfTranslations.Items.Refresh();
-                    ListOfTranslations.SelectedItem = 0;
-
+                    TranslateButton.IsEnabled = TranslateTo.SelectedItem is not null;
                 } else {
                     return;
                 }
@@ -248,9 +239,7 @@ namespace SC4LTEXTT {
                 if (translatedText is null) {
                     return;
                 }
-
-                TGI newTGI = new TGI(_selectedListBoxItem.BaseTGI.TypeID, _selectedListBoxItem.BaseTGI.GroupID + _selectedLanguage.Offset, _selectedListBoxItem.BaseTGI.InstanceID);
-                _translationItems.Add(new TranslationItem(_selectedListBoxItem.BaseTGI, newTGI, _selectedLanguage, inputText, translatedText, translatedText));
+                AddTranslation(inputText, translatedText, translatedText);
 
                 TranslationOutput.Text = translatedText;
                 ListOfTranslations.Items.Refresh();
@@ -270,25 +259,6 @@ namespace SC4LTEXTT {
 
 
 
-        private void ListOfTranslations_OnSelectionChanged(object sender, SelectionChangedEventArgs e) {
-            if (ListOfTranslations.SelectedItem is not null ) {
-                _selectedListBoxItem = (TranslationItem) ListOfTranslations.SelectedItem;
-
-
-                TranslationInput.Text = _selectedListBoxItem.DefaultTranslation;
-                TranslationOutput.Text = _selectedListBoxItem.ModifiedTranslation;
-            }
-        }
-
-
-
-        private void RevertChanges_Click(object sender, RoutedEventArgs e) {
-            TranslationOutput.Text = _selectedListBoxItem.AzureTranslation;
-            _selectedListBoxItem.ModifiedTranslation = _selectedListBoxItem.AzureTranslation;
-        }
-
-
-
         /// <summary>
         /// Save the modified translations when focus to the output textbox is lost
         /// </summary>
@@ -300,23 +270,57 @@ namespace SC4LTEXTT {
                     MessageBox.Show("Please choose a language to save this translation as!", "No Language Chosen", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
-                _selectedListBoxItem.ModifiedTranslation = TranslationOutput.Text;
 
-                ////if the original translation is not found, then the user manually translated instead of fetching the AI translation
-                //bool origFound = _selectedListBoxItem.OriginalTranslations.TryGetValue(_langOffset, out _);
-                //if (!origFound) {
-                //    _selectedListBoxItem.OriginalTranslations.Add(_langOffset, TranslationOutput.Text);
-                //    _selectedListBoxItem.HasTranslations = true;
+
+
+
+
+                //if (FindTranslation(_selectedListBoxItem.BaseTGI, _selectedLanguage.Offset) is null) {
+                //    AddTranslation(_selectedListBoxItem.DefaultTranslation, string.Empty, TranslationOutput.Text);
+                //} else {
+                //    _selectedListBoxItem.ModifiedTranslation = TranslationOutput.Text;
                 //}
+                
                 ListOfTranslations.Items.Refresh();
             }
         }
 
 
 
+
+
+        private void AddTranslation(string baseText, string azureText, string translatedText) {
+            TGI newTGI = new TGI(_selectedListBoxItem.BaseTGI.TypeID, _selectedListBoxItem.BaseTGI.GroupID + _selectedLanguage.Offset, _selectedListBoxItem.BaseTGI.InstanceID);
+            TranslationItem newItem = new TranslationItem(_selectedListBoxItem.BaseTGI, newTGI, _selectedLanguage, baseText, azureText, translatedText);
+            _translationItems.Add(newItem);
+            _translationItems.OrderBy(t => t.ThisTGI.GroupID).ThenBy(t => t.ThisTGI.InstanceID).ToList();
+
+            ListOfTranslations.SelectedItem = newItem;
+            _selectedListBoxItem = newItem;
+        }
+
+
+        private void ListOfTranslations_OnSelectionChanged(object sender, SelectionChangedEventArgs e) {
+            if (ListOfTranslations.SelectedItem is not null ) {
+                _selectedListBoxItem = (TranslationItem) ListOfTranslations.SelectedItem;
+                TranslationInput.Text = _selectedListBoxItem.DefaultTranslation;
+                TranslationOutput.Text = _selectedListBoxItem.ModifiedTranslation;
+                TranslateTo.SelectedItem = _selectedListBoxItem.Language;
+            }
+        }
+        private void RevertChanges_Click(object sender, RoutedEventArgs e) {
+            TranslationOutput.Text = _selectedListBoxItem.AzureTranslation;
+            _selectedListBoxItem.ModifiedTranslation = _selectedListBoxItem.AzureTranslation;
+        }
         private void TranslateTo_SelectionChanged(object sender, SelectionChangedEventArgs e) {
             _selectedLanguage = (LanguageItem) TranslateTo.SelectedItem;
             TranslateButton.IsEnabled = true;
+
+            TranslationItem? item = _translationItems.Where(t => t.BaseTGI == _selectedListBoxItem.BaseTGI && t.Language.Offset == _selectedLanguage.Offset).FirstOrDefault();
+            if (item is not null) {
+                ListOfTranslations.SelectedItem = item;
+                _selectedListBoxItem = item;
+            }
         }
 
 
