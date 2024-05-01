@@ -171,7 +171,8 @@
 					  Width="220"
 					  Margin="10,0"
 					  VerticalContentAlignment="Center"
-					  SelectionChanged="TranslateTo_SelectionChanged" />
+					  SelectionChanged="TranslateTo_SelectionChanged"
+					  IsEnabled="False"/>
 			<Button x:Name="TranslateButton"
 					Grid.Row="2"
 					Grid.Column="1"
@@ -180,7 +181,8 @@
 					Click="FetchTranslation_Click"
 					VerticalAlignment="Top"
 					Height="30"
-					MaxWidth="150" />
+					MaxWidth="150"
+					IsEnabled="False"/>
 			<Label Grid.Row="3"
 				   Grid.Column="0"
 				   Content="Translation _Output"
@@ -223,30 +225,31 @@
 
 			<!-- Translate Grid: Row 6 -->
 			<StackPanel Orientation="Horizontal"
+						HorizontalAlignment="Right"
 						Grid.Column="0"
 						Grid.Row="6"
-						Grid.ColumnSpan="2"
+						Grid.ColumnSpan="3"
 						Margin="10,0">
 				<Button x:Name="AddLtextsToCurrentFile"
-						Width="180"
+						Width="150"
 						Margin="0,0,0,10"
 						Click="AddLtextsToCurrentFile_Click">
 					<StackPanel Orientation="Horizontal">
 						<Image Source="img/fluent--stack-add-24-regular.png"
 							   Margin="4" />
 						<Label VerticalContentAlignment="Center"
-							   Content="Add LTEXTs to current file" />
+							   Content="Update current file" />
 					</StackPanel>
 				</Button>
 				<Button x:Name="SaveLtextsToNewFile"
-						Width="180"
-						Margin="10,0,0,10"
+						Width="150"
+						Margin="20,0,0,10"
 						Click="SaveLtextsToNewFile_Click">
 					<StackPanel Orientation="Horizontal">
 						<Image Source="img/fluent--stack-arrow-forward-24-regular.png"
 							   Margin="4" />
 						<Label VerticalContentAlignment="Center"
-							   Content="Save LTEXTs to new file" />
+							   Content="Save to new file" />
 					</StackPanel>
 				</Button>
 			</StackPanel>

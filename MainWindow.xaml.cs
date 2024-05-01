@@ -105,7 +105,6 @@ namespace SC4LTEXTT {
             Title = "SC4 LTEXT Translator - " + releaseVersion.ToString();
 
             TranslateTo.ItemsSource = _languages;
-            TranslateButton.IsEnabled = false;
 
             _selectedListBoxItem = (TranslationItem) ListOfTranslations.SelectedItem;
             ListOfTranslations.ItemsSource = _translationItems;
@@ -189,9 +188,8 @@ namespace SC4LTEXTT {
                         }
                         
                     }
-
-                    _selectedListBoxItem = (TranslationItem) ListOfTranslations.Items[0];
-                    TranslateButton.IsEnabled = TranslateTo.SelectedItem is not null;
+                    TranslateButton.IsEnabled = false;
+                    TranslateTo.IsEnabled = false;
                 } else {
                     return;
                 }
@@ -202,12 +200,18 @@ namespace SC4LTEXTT {
                     TranslationInput.Text = $"Error: Could not decode LTEXT file in `{_selectedFile.File.Name}` at position {_translationItems.Count}. File load terminated.\r\n{ex.Message}\r\n{ex.StackTrace}";
                 }
             }
+
             view.Refresh();
         }
 
 
 
         private void FetchTranslation_Click(object sender, RoutedEventArgs e) {
+            if (_selectedListBoxItem is null) {
+                MessageBox.Show("Please select a LTEXT item first.", "", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                return;
+            }
+
             //To minimize hits to the API don't retranslate an item if it has already been translated --- I store this as an "original translation" so it can be reset to "default" later on if needed
             TranslationItem? thisTranslation = GetTranslation(_selectedListBoxItem.BaseTGI, _selectedLanguage.Offset);
             if (thisTranslation != null) {
@@ -280,8 +284,11 @@ namespace SC4LTEXTT {
         /// <param name="e"></param>
         private void TranslationOutput_LostFocus(object sender, RoutedEventArgs e) {
             string newTranslation = TranslationOutput.Text;
-            if (_selectedListBoxItem is not null && _selectedListBoxItem.ModifiedTranslation != newTranslation) {
-
+            if (_selectedListBoxItem is null) {
+                MessageBox.Show("Please select a LTEXT item first.","", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                return;
+            } 
+            else if (_selectedListBoxItem.ModifiedTranslation != newTranslation) {
                 //Determine if we add a new (manual) translation or adjust existing one
                 //This assumption works because otherwise if an item with the same language was found it would have been selected; no translation in selected language found → selected item does not change
                 if (_selectedListBoxItem.Language.Offset != _selectedLanguage.Offset) {
@@ -318,7 +325,7 @@ namespace SC4LTEXTT {
         private TranslationItem GetBaseTranslation(TGI tgi) {
             TranslationItem? baseTranslation = _translationItems.Find(i => i.ThisTGI == tgi);
             if (baseTranslation is null) {
-                throw new NullReferenceException("Could not find the designated default translation with TGI of" + _selectedListBoxItem.BaseTGI);
+                throw new NullReferenceException("Could not find the designated default translation with TGI of " + _selectedListBoxItem.BaseTGI);
             }
             return baseTranslation;
         }
@@ -334,6 +341,8 @@ namespace SC4LTEXTT {
 
 
         private void ListOfTranslations_OnSelectionChanged(object sender, SelectionChangedEventArgs e) {
+            TranslateButton.IsEnabled = false;
+            TranslateTo.IsEnabled = false;
             if (ListOfTranslations.SelectedItem is not null ) {
                 _selectedListBoxItem = (TranslationItem) ListOfTranslations.SelectedItem;
                 TranslationItem baseTranslation = GetBaseTranslation(_selectedListBoxItem.BaseTGI);
@@ -392,11 +401,6 @@ namespace SC4LTEXTT {
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void SaveLtextsToNewFile_Click(object sender, RoutedEventArgs e) {
-            if (_selectedLanguage.Offset == 0x00) {
-                MessageBox.Show("Please choose a language to save this translation as!", "No Language Chosen", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
             string saveAsPath;
             SaveFileDialog dialog = new SaveFileDialog() {
                 AddExtension = true,
@@ -423,39 +427,45 @@ namespace SC4LTEXTT {
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void AddLtextsToCurrentFile_Click(object sender, RoutedEventArgs e) {
-            if (_selectedLanguage.Offset == 0x00) {
-                MessageBox.Show("Please choose a language to save this translation as!", "No Language Chosen", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
             if (_selectedFile is null) return;
             SaveLTEXTs(_selectedFile);
         }
 
 
         private void SaveLTEXTs(DBPFFile file) {
-            //try {
-            //    ListBoxItem item;
-            //    DBPFEntryLTEXT newEntry;
+            try {
+                TranslationItem translation;
+                DBPFEntryLTEXT newEntry;
+                DBPFEntryLTEXT existingEntry;
 
-            //    for (int idx = 0; idx < _listBoxItems.Count; idx++) {
-            //        item = _listBoxItems[idx];
-            //        if (item.ModifiedTranslations.Count > 0) {
-            //            TGI baseTGI = item.BaseEntry.TGI;
-            //            foreach (byte offset in item.ModifiedTranslations.Keys) {
-            //                newEntry = new DBPFEntryLTEXT(new TGI(baseTGI.TypeID, baseTGI.GroupID + offset, baseTGI.InstanceID), item.ModifiedTranslations[offset]);
-            //                file.AddEntry(newEntry);
-            //            }
-            //        }
-            //    }
-            //    if (file.CountEntries() > 0) {
-            //        file.EncodeAllEntries();
-            //        file.Save();
-            //    }
-            //}
-            //catch (Exception ex) {
-            //    TranslationOutput.Text = $"Error: {ex.Message}\r\n {ex.StackTrace}";
-            //}
+                for (int idx = 0; idx < _translationItems.Count; idx++) {
+                    translation = _translationItems[idx];
+                    TGI found = file.GetTGIs().Where(t => t == translation.ThisTGI).FirstOrDefault();
+                    
+                    //If translation TGI not found add a new entry
+                    if (found == default) {
+                        newEntry = new DBPFEntryLTEXT(translation.ThisTGI, Coalesce(translation.ModifiedTranslation, translation.ImportedTranslation));
+                        file.AddEntry(new DBPFEntryLTEXT(translation.ThisTGI, Coalesce(translation.ModifiedTranslation, translation.ImportedTranslation)));
+                    } 
+                    
+                    //If translation is found, we should update the text if it has been changed
+                    else if (translation.ModifiedTranslation != translation.ImportedTranslation && translation.ModifiedTranslation != string.Empty) {
+                        existingEntry = (DBPFEntryLTEXT) file.GetEntry(translation.ThisTGI);
+                        existingEntry.Text = translation.ModifiedTranslation;
+                    }
+                }
+                if (file.CountEntries() > 0) {
+                    file.EncodeAllEntries();
+                    file.Save();
+                }
+            }
+            catch (Exception ex) {
+                TranslationOutput.Text = $"Error: {ex.Message}\r\n {ex.StackTrace}";
+            }
+        }
+
+        private static string Coalesce(string text1, string text2) {
+            if (text1 == string.Empty) { return text2; } else { return text1; }
         }
     }
 }
