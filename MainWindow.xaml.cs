@@ -150,6 +150,7 @@ namespace SC4LTEXTT {
 
 
         private void ChooseFile_Click(object sender, RoutedEventArgs e) {
+            _selectedListBoxItem = null;
             _translationItems.Clear();
             TranslationInput.Clear();
             TranslationOutput.Clear();
@@ -161,8 +162,8 @@ namespace SC4LTEXTT {
 
                     _selectedFile = new DBPFFile(dialog.FileName);
                     List<DBPFEntry> allLTEXTs = _selectedFile.GetEntries(DBPFTGI.LTEXT);
+                    allLTEXTs = allLTEXTs.OrderBy(t => t.TGI.InstanceID).ThenBy(t => t.TGI.GroupID).ToList();
                     allLTEXTs.DecodeEntries();
-
                     
                     //Since everything is sorted, make the first ltext is set as the base of the set. Every ltext with a GID within 0x23 (35) of the base is grouped as a translation of the base and added to the set.
                     uint offset = 0;
@@ -177,7 +178,7 @@ namespace SC4LTEXTT {
 
                         _translationItems.Add(new TranslationItem(allLTEXTs[baseIdx].TGI, allLTEXTs[baseIdx].TGI, lang, defaultText));
                         if (translationIdx == allLTEXTs.Count) { break; }
-                        while (allLTEXTs[translationIdx].TGI.GroupID - allLTEXTs[baseIdx].TGI.GroupID <= 0x23 && allLTEXTs[translationIdx].TGI.InstanceID == allLTEXTs[baseIdx].TGI.InstanceID) {
+                        while (translationIdx < allLTEXTs.Count && allLTEXTs[translationIdx].TGI.GroupID - allLTEXTs[baseIdx].TGI.GroupID <= 0x23 && allLTEXTs[translationIdx].TGI.InstanceID == allLTEXTs[baseIdx].TGI.InstanceID) {
                             offset = allLTEXTs[translationIdx].TGI.GroupID - allLTEXTs[baseIdx].TGI.GroupID;
                             lang = GetLanguage(offset);
                             _translationItems.Add(new TranslationItem(allLTEXTs[baseIdx].TGI, allLTEXTs[translationIdx].TGI, lang, ((DBPFEntryLTEXT) allLTEXTs[translationIdx]).Text, string.Empty, string.Empty));
@@ -341,8 +342,8 @@ namespace SC4LTEXTT {
 
 
         private void ListOfTranslations_OnSelectionChanged(object sender, SelectionChangedEventArgs e) {
-            TranslateButton.IsEnabled = false;
-            TranslateTo.IsEnabled = false;
+            TranslateButton.IsEnabled = true;
+            TranslateTo.IsEnabled = true;
             if (ListOfTranslations.SelectedItem is not null ) {
                 _selectedListBoxItem = (TranslationItem) ListOfTranslations.SelectedItem;
                 TranslationItem baseTranslation = GetBaseTranslation(_selectedListBoxItem.BaseTGI);
