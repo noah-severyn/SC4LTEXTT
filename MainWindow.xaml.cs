@@ -3,12 +3,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using csDBPF;
-using csDBPF.Entries;
 using Azure;
 using Azure.AI.Translation.Text;
 using Microsoft.Win32;
-using System;
-using System.Text;
+using System.Windows.Data;
+using System.Linq;
+using System.ComponentModel;
 
 namespace SC4LTEXTT {
     /// <summary>
@@ -16,10 +16,11 @@ namespace SC4LTEXTT {
     /// </summary>
     public partial class MainWindow : Window {
         internal readonly Version releaseVersion = new Version(0, 4);
-        private readonly List<ListBoxItem> _listBoxItems = new List<ListBoxItem>();
         private DBPFFile? _selectedFile;
-        private ListBoxItem _selectedListBoxItem;
-        private byte _langOffset;
+        private TranslationItem _selectedListBoxItem;
+        private LanguageItem _selectedLanguage;
+        private readonly SolidColorBrush WarningColor = new SolidColorBrush(Color.FromRgb(245, 245, 163));
+        private readonly SolidColorBrush ChangedColor = new SolidColorBrush(Color.FromRgb(184, 245, 163));
 
 
         /// <summary>
@@ -48,50 +49,54 @@ namespace SC4LTEXTT {
                 return $"0x{Offset.ToString("x2")}: {ISO} - {Desc}";
             }
         }
-        private readonly List<LanguageItem> _languages = [];
+        private static readonly List<LanguageItem> _languages = [];
 
 
+        private readonly CollectionView view;
+        private readonly List<TranslationItem> _translationItems = new List<TranslationItem>();
+        private class TranslationItem {
+            /// <summary>
+            /// TGI of the base (default) translation. Use to lookup the text to start with for creating a new translation.
+            /// </summary>
+            public TGI BaseTGI { get; set; }
+            /// <summary>
+            /// The language of this tranlsation.
+            /// </summary>
+            public LanguageItem Language { get; set; }
+            /// <summary>
+            /// The TGI of this translation, incorporating the language offset.
+            /// </summary>
+            public TGI ThisTGI { get; set; }
+            /// <summary>
+            /// The translation from the imported LTEXT file.
+            /// </summary>
+            public string ImportedTranslation { get; set; }
+            /// <summary>
+            /// The output returned from Azure translation. Saved separately in case the user wants to revert customizations made (to reduce calls to the API to re-translate).
+            /// </summary>
+            public string AzureTranslation { get; set; }
+            /// <summary>
+            /// The user-modified translation output. If this is empty then this item has not been translated or modified this session.
+            /// </summary>
+            public string ModifiedTranslation { get; set; }
+            /// <summary>
+            /// If the base translation has been changed then signal that this translation needs to be updated accordingly.
+            /// </summary>
+            public bool OutOfDate { get; set; }
 
-        /// <summary>
-        /// Item of the list box, consisting of the LTEXT entry plus other parameters.
-        /// </summary>
-        private class ListBoxItem {
-            public DBPFEntryLTEXT BaseEntry { get; set; }
-            public Dictionary<byte, string> OriginalTranslations { get; set; } //Stores the output returned from Azure
-            public Dictionary<byte, string> ModifiedTranslations { get; set; } //Stores the user-modified translation output
             public SolidColorBrush BackColor { get; set; }
 
-            private bool _hasTranslations; //Whether this item has been translated to the current language.
-            public bool HasTranslations {
-                get { return _hasTranslations; }
-                set {
-                    _hasTranslations = value;
-                    if (ModifiedTranslations.Count == 18) {
-                        BackColor = Brushes.YellowGreen;
-                    } else if (_hasTranslations) {
-                        BackColor = Brushes.LightGoldenrodYellow;
-                    } else {
-                        BackColor = Brushes.Transparent;
-                    }
-                }
-            }
-
-
-            public ListBoxItem(DBPFEntry entry, bool hasTranslated) {
-                BaseEntry = (DBPFEntryLTEXT) entry;
-                OriginalTranslations = new Dictionary<byte, string>();
-                ModifiedTranslations = new Dictionary<byte, string>();
-                _hasTranslations = hasTranslated;
-                BackColor = Brushes.Transparent;
-            }
-            public ListBoxItem(DBPFEntryLTEXT entry, bool hasTranslated) {
-                BaseEntry = entry;
-                OriginalTranslations = new Dictionary<byte, string>();
-                ModifiedTranslations = new Dictionary<byte, string>();
-                _hasTranslations = hasTranslated;
+            public TranslationItem(TGI baseTGI, TGI thisTGI, LanguageItem language, string defaultText, string azureText = "", string modifiedText = "") {
+                BaseTGI = baseTGI;
+                ThisTGI = thisTGI;
+                Language = language;
+                ImportedTranslation = defaultText;
+                AzureTranslation = azureText;
+                ModifiedTranslation = modifiedText;
                 BackColor = Brushes.Transparent;
             }
         }
+
 
 
         public MainWindow() { 
@@ -99,20 +104,24 @@ namespace SC4LTEXTT {
             FillGameLanguageList();
             Title = "SC4 LTEXT Translator - " + releaseVersion.ToString();
 
-            TranslateTo.ItemsSource = _languages.Skip(1);
-            TranslateButton.IsEnabled = false;
+            TranslateTo.ItemsSource = _languages;
 
-            _selectedListBoxItem = (ListBoxItem) ListofLTEXTs.SelectedItem;
-            //_log = new List<string>();
-            //===================================================
-            //Add input for input language detection
-            //Add option for translation for any language or just sc4-supported languages
+            _selectedListBoxItem = (TranslationItem) ListOfTranslations.SelectedItem;
+            ListOfTranslations.ItemsSource = _translationItems;
+
+            view = (CollectionView) CollectionViewSource.GetDefaultView(ListOfTranslations.ItemsSource);
+            view.GroupDescriptions.Add(new PropertyGroupDescription("BaseTGI"));
+            view.SortDescriptions.Add(new SortDescription("ThisTGI.GroupID", ListSortDirection.Ascending));
+            view.SortDescriptions.Add(new SortDescription("ThisTGI.InstanceID", ListSortDirection.Ascending));
+            //============================================================================================================================================================================
+            //TODO - Add input for input language detection
+            //TODO - Add option for translation for any language or just sc4-supported languages
         }
 
         /// <summary>
         /// Initialize the available in-game languages.
         /// </summary>
-        private void FillGameLanguageList() {
+        private static void FillGameLanguageList() {
             _languages.Add(new LanguageItem(0x00, "", "Default")); //(used if localized LTEXT file is missing)
             _languages.Add(new LanguageItem(0x01, "en-US", "US English"));
             _languages.Add(new LanguageItem(0x02, "en-GB", "UK English"));
@@ -132,59 +141,98 @@ namespace SC4LTEXTT {
             _languages.Add(new LanguageItem(0x12, "zh-hant", "Traditional Chinese"));
             _languages.Add(new LanguageItem(0x13, "th", "Thai"));
             _languages.Add(new LanguageItem(0x14, "ko", "Korean"));
-            _languages.Add(new LanguageItem(0x23, "pt", "Portuguese (Brazilian)"));
+            _languages.Add(new LanguageItem(0x23, "pt", "Portuguese (pt-br)")); //Portuguese(Brazilian)
+        }
+        public static LanguageItem GetLanguage(uint offset) {
+            return _languages.Find(item => item.Offset == offset);
         }
 
 
 
         private void ChooseFile_Click(object sender, RoutedEventArgs e) {
-            _listBoxItems.Clear();
-            ListofLTEXTs.Items.Refresh();
+            _selectedListBoxItem = null;
+            _translationItems.Clear();
+            TranslationInput.Clear();
+            TranslationOutput.Clear();
+
             try {
                 OpenFileDialog dialog = new OpenFileDialog();
                 if (dialog.ShowDialog() == true) {
                     FileName.Content = Path.GetFileName(dialog.FileName);
 
                     _selectedFile = new DBPFFile(dialog.FileName);
-                    List<DBPFEntry> ltexts = _selectedFile.GetEntries(DBPFTGI.LTEXT);
-                    foreach (DBPFEntry entry in ltexts) {
-                        entry.Decode();
-                        _listBoxItems.Add(new ListBoxItem(entry, false));
-                    }
-                    TranslateButton.IsEnabled = (TranslateTo.SelectedItem is not null);
-                    ListofLTEXTs.ItemsSource = _listBoxItems;
-                    ListofLTEXTs.Items.Refresh();
+                    List<DBPFEntry> allLTEXTs = _selectedFile.GetEntries(DBPFTGI.LTEXT);
+                    allLTEXTs = allLTEXTs.OrderBy(t => t.TGI.InstanceID).ThenBy(t => t.TGI.GroupID).ToList();
+                    allLTEXTs.DecodeEntries();
+                    
+                    //Since everything is sorted, make the first ltext is set as the base of the set. Every ltext with a GID within 0x23 (35) of the base is grouped as a translation of the base and added to the set.
+                    uint offset = 0;
+                    int translationIdx;
+                    string defaultText;
+                    LanguageItem lang;
+                    for (int baseIdx = 0; baseIdx < allLTEXTs.Count; baseIdx++) {
+                        translationIdx = baseIdx + 1;
+                        offset = 0;
+                        lang = GetLanguage(offset);
+                        defaultText = ((DBPFEntryLTEXT) allLTEXTs[baseIdx]).Text;
 
-                    _selectedListBoxItem = (ListBoxItem) ListofLTEXTs.SelectedItem;
+                        _translationItems.Add(new TranslationItem(allLTEXTs[baseIdx].TGI, allLTEXTs[baseIdx].TGI, lang, defaultText));
+                        if (translationIdx == allLTEXTs.Count) { break; }
+                        while (translationIdx < allLTEXTs.Count && allLTEXTs[translationIdx].TGI.GroupID - allLTEXTs[baseIdx].TGI.GroupID <= 0x23 && allLTEXTs[translationIdx].TGI.InstanceID == allLTEXTs[baseIdx].TGI.InstanceID) {
+                            offset = allLTEXTs[translationIdx].TGI.GroupID - allLTEXTs[baseIdx].TGI.GroupID;
+                            lang = GetLanguage(offset);
+                            _translationItems.Add(new TranslationItem(allLTEXTs[baseIdx].TGI, allLTEXTs[translationIdx].TGI, lang, ((DBPFEntryLTEXT) allLTEXTs[translationIdx]).Text, string.Empty, string.Empty));
+                            translationIdx++;
+                        }
+                        if (translationIdx - baseIdx > 1) {
+                            baseIdx += translationIdx - 1;
+                        }
+                        
+                    }
+                    TranslateButton.IsEnabled = false;
+                    TranslateTo.IsEnabled = false;
                 } else {
                     return;
                 }
             }
             catch (Exception ex) {
-                ListofLTEXTs.Items.Refresh();
+                ListOfTranslations.Items.Refresh();
                 if (_selectedFile is not null) {
-                    TranslationInput.Text = $"Error: Could not decode LTEXT file in `{_selectedFile.File.Name}` at position {_listBoxItems.Count}. File load terminated.\r\n{ex.Message}\r\n{ex.StackTrace}";
+                    TranslationInput.Text = $"Error: Could not decode LTEXT file in `{_selectedFile.File.Name}` at position {_translationItems.Count}. File load terminated.\r\n{ex.Message}\r\n{ex.StackTrace}";
                 }
             }
+
+            view.Refresh();
         }
 
 
 
-        private void TranslateText_Click(object sender, RoutedEventArgs e) {
-            //To minimize hits to the API don't retranslate an item if it has already been translated --- I store this as an "original translation" so it can be reset to "default" later on if needed
-            _selectedListBoxItem.ModifiedTranslations.TryGetValue(_langOffset, out string? translatedText);
-            if (TranslateTo.SelectedItem is null || translatedText is not null) {
+        private void FetchTranslation_Click(object sender, RoutedEventArgs e) {
+            if (_selectedListBoxItem is null) {
+                MessageBox.Show("Please select a LTEXT item first.", "", MessageBoxButton.OK, MessageBoxImage.Exclamation);
                 return;
+            }
+
+            //To minimize hits to the API don't retranslate an item if it has already been translated --- I store this as an "original translation" so it can be reset to "default" later on if needed
+            TranslationItem? thisTranslation = GetTranslation(_selectedListBoxItem.BaseTGI, _selectedLanguage.Offset);
+            if (thisTranslation != null) {
+                if (thisTranslation.AzureTranslation != string.Empty && thisTranslation.OutOfDate == false) {
+                    return;
+                }
             }
 
             AzureKeyCredential credential = new(Credentials.ApiKey);
             TextTranslationClient client = new(credential, "global");
 
             try {
-                string targetLanguage = _languages.Where(r => r.Offset == _langOffset).First().ISO;
-                string inputText = TranslationInput.Text;
-                //_log.Add("Starting translation with text: " + inputText);
-
+                string targetLanguage = _selectedLanguage.ISO;
+                TranslationItem baseTranslation = GetBaseTranslation(_selectedListBoxItem.BaseTGI);
+                string inputText;
+                if (baseTranslation.ModifiedTranslation == string.Empty) {
+                    inputText = baseTranslation.ImportedTranslation;
+                } else {
+                    inputText = baseTranslation.ModifiedTranslation;
+                }
                 //Response<IReadOnlyList<TranslatedTextItem>> response = await client.TranslateAsync(targetLanguage, inputText).ConfigureAwait(false);
                 //StringBuilder alllLangs = new StringBuilder();
                 //List<string> langs = new List<string>();
@@ -205,18 +253,21 @@ namespace SC4LTEXTT {
                 Response<IReadOnlyList<TranslatedTextItem>> response = client.Translate(targetLanguage, inputText);
                 IReadOnlyList<TranslatedTextItem> translations = response.Value;
                 TranslatedTextItem? translation = translations.FirstOrDefault();
-                translatedText = translation.Translations.FirstOrDefault().Text;
+                string translatedText = translation.Translations.FirstOrDefault().Text;
                 if (translatedText is null) {
                     return;
                 }
-
-
-                _selectedListBoxItem.OriginalTranslations.Add(_langOffset, translatedText);
-                _selectedListBoxItem.ModifiedTranslations.Add(_langOffset, translatedText);
-                _selectedListBoxItem.HasTranslations = true;
+                if (thisTranslation is null) {
+                    AddTranslation(inputText, translatedText, translatedText);
+                } else {
+                    _selectedListBoxItem.AzureTranslation = translatedText;
+                    _selectedListBoxItem.ModifiedTranslation = translatedText;
+                    _selectedListBoxItem.OutOfDate = false;
+                }
+                _selectedListBoxItem.BackColor = ChangedColor;
 
                 TranslationOutput.Text = translatedText;
-                ListofLTEXTs.Items.Refresh();
+                view.Refresh();
             }
             catch (RequestFailedException exception) {
                 TranslationOutput.Text = $"{exception.ErrorCode}: {exception.Message}";
@@ -227,70 +278,120 @@ namespace SC4LTEXTT {
 
 
 
-        private void ListofLTEXTs_OnSelectionChanged(object sender, SelectionChangedEventArgs e) {
-            if (ListofLTEXTs.SelectedItem is not null ) {
-                _selectedListBoxItem = (ListBoxItem) ListofLTEXTs.SelectedItem;
-
-
-                TranslationInput.Text = _selectedListBoxItem.BaseEntry.Text;
-                _selectedListBoxItem.ModifiedTranslations.TryGetValue(_langOffset, out string? modifiedText);
-                TranslationOutput.Text = modifiedText ?? string.Empty;
-            }
-        }
-
-
-
-        private void RevertChanges_Click(object sender, RoutedEventArgs e) {
-            TranslationOutput.Text = _selectedListBoxItem.OriginalTranslations[_langOffset];
-            _selectedListBoxItem.ModifiedTranslations[_langOffset] = TranslationOutput.Text;
-        }
-
-
-
         /// <summary>
         /// Save the modified translations when focus to the output textbox is lost
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void TranslationOutput_LostFocus(object sender, RoutedEventArgs e) {
-            if (_selectedListBoxItem is not null) {
-                if (_langOffset == 0x0) {
-                    MessageBox.Show("Please choose a language to save this translation as!", "No Language Chosen", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
+            string newTranslation = TranslationOutput.Text;
+            if (_selectedListBoxItem is null) {
+                MessageBox.Show("Please select a LTEXT item first.","", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                return;
+            } 
+            else if (_selectedListBoxItem.ModifiedTranslation != newTranslation) {
+                //Determine if we add a new (manual) translation or adjust existing one
+                //This assumption works because otherwise if an item with the same language was found it would have been selected; no translation in selected language found → selected item does not change
+                if (_selectedListBoxItem.Language.Offset != _selectedLanguage.Offset) {
+                    AddTranslation(string.Empty, string.Empty, newTranslation);
+                } else {
+                    _selectedListBoxItem.ModifiedTranslation = newTranslation;
+                    _selectedListBoxItem.OutOfDate = false;
                 }
-                _selectedListBoxItem.ModifiedTranslations[_langOffset] = TranslationOutput.Text;
+                _selectedListBoxItem.BackColor = ChangedColor;
 
-                //if the original translation is not found, then the user manually translated instead of fetching the AI translation
-                bool origFound = _selectedListBoxItem.OriginalTranslations.TryGetValue(_langOffset, out _);
-                if (!origFound) {
-                    _selectedListBoxItem.OriginalTranslations.Add(_langOffset, TranslationOutput.Text);
-                    _selectedListBoxItem.HasTranslations = true;
+
+                //If the currently changing translation is the base translation then mark all child translations as out of date
+                if (_selectedListBoxItem.BaseTGI == _selectedListBoxItem.ThisTGI && _selectedListBoxItem.ImportedTranslation != newTranslation) {
+                    foreach (TranslationItem item in _translationItems) {
+                        if (item.BaseTGI == _selectedListBoxItem.BaseTGI && item.Language.Offset > 0x00) {
+                            item.OutOfDate = true;
+                            item.BackColor = WarningColor;
+                        }
+                    }
+                    TranslationInput.Text = newTranslation;
                 }
-                ListofLTEXTs.Items.Refresh();
+                view.Refresh();
+            }
+        }
+
+
+        private bool TranslationExists(TGI baseTGI, byte offset) {
+            TranslationItem? result = _translationItems.Find(i => i.BaseTGI == baseTGI && i.Language.Offset == offset);
+            return result is not null;
+        }
+        private TranslationItem? GetTranslation(TGI baseTGI, byte offset) {
+            return _translationItems.Find(i => i.BaseTGI == baseTGI && i.Language.Offset == offset);
+        }
+        private TranslationItem GetBaseTranslation(TGI tgi) {
+            TranslationItem? baseTranslation = _translationItems.Find(i => i.ThisTGI == tgi);
+            if (baseTranslation is null) {
+                throw new NullReferenceException("Could not find the designated default translation with TGI of " + _selectedListBoxItem.BaseTGI);
+            }
+            return baseTranslation;
+        }
+        private void AddTranslation(string importedText, string azureText, string translatedText) {
+            TGI newTGI = new TGI(_selectedListBoxItem.BaseTGI.TypeID, _selectedListBoxItem.BaseTGI.GroupID + _selectedLanguage.Offset, _selectedListBoxItem.BaseTGI.InstanceID);
+            TranslationItem newItem = new TranslationItem(_selectedListBoxItem.BaseTGI, newTGI, _selectedLanguage, importedText, azureText, translatedText);
+            _translationItems.Add(newItem);
+
+            ListOfTranslations.SelectedItem = newItem;
+            _selectedListBoxItem = newItem;
+        }
+
+
+
+        private void ListOfTranslations_OnSelectionChanged(object sender, SelectionChangedEventArgs e) {
+            TranslateButton.IsEnabled = true;
+            TranslateTo.IsEnabled = true;
+            if (ListOfTranslations.SelectedItem is not null ) {
+                _selectedListBoxItem = (TranslationItem) ListOfTranslations.SelectedItem;
+                TranslationItem baseTranslation = GetBaseTranslation(_selectedListBoxItem.BaseTGI);
+
+                if (baseTranslation.ModifiedTranslation == string.Empty) {
+                    TranslationInput.Text = baseTranslation.ImportedTranslation;
+                } else {
+                    TranslationInput.Text = baseTranslation.ModifiedTranslation;
+                }
+
+                if (_selectedListBoxItem.ModifiedTranslation == string.Empty) {
+                    TranslationOutput.Text = _selectedListBoxItem.ImportedTranslation;
+                } else {
+                    TranslationOutput.Text = _selectedListBoxItem.ModifiedTranslation;
+                }
+                TranslateTo.SelectedItem = _selectedListBoxItem.Language;
             }
         }
 
 
 
+        private void RevertChanges_Click(object sender, RoutedEventArgs e) {
+            if (_selectedListBoxItem.AzureTranslation == string.Empty) {
+                TranslationOutput.Text = _selectedListBoxItem.ImportedTranslation;
+                _selectedListBoxItem.ModifiedTranslation = string.Empty;
+                _selectedListBoxItem.BackColor = Brushes.Transparent;
+                view.Refresh();
+            } else {
+                TranslationOutput.Text = _selectedListBoxItem.AzureTranslation;
+                _selectedListBoxItem.ModifiedTranslation = _selectedListBoxItem.AzureTranslation;
+            }
+
+            
+        }
+
+
+
         private void TranslateTo_SelectionChanged(object sender, SelectionChangedEventArgs e) {
-            _langOffset = Convert.ToByte(TranslateTo.SelectedItem.ToString()?.Substring(2, 2), 16);
-            TranslationOutput.Text = string.Empty;
-
-            //Refresh the listbox to highlight all the items translated in the chosen language
-            foreach (ListBoxItem item in _listBoxItems) {
-                item.HasTranslations = item.ModifiedTranslations.ContainsKey(_langOffset);
-            }
-            ListofLTEXTs.Items.Refresh();
-
-
-            //Refresh the output with the chosen language
-            if (_selectedListBoxItem is not null) {
-                bool translationFound = _selectedListBoxItem.ModifiedTranslations.TryGetValue(_langOffset, out string? translatedText);
-                if (translationFound) {
-                    TranslationOutput.Text = translatedText;
-                }
-            }
+            _selectedLanguage = (LanguageItem) TranslateTo.SelectedItem;
             TranslateButton.IsEnabled = true;
+
+            TranslationItem? result = GetTranslation(_selectedListBoxItem.BaseTGI, _selectedLanguage.Offset);
+            if (result is null) {
+                TranslationOutput.Text = string.Empty;
+            } else {
+                ListOfTranslations.SelectedItem = result;
+                _selectedListBoxItem = result;
+            }
         }
 
 
@@ -301,11 +402,6 @@ namespace SC4LTEXTT {
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void SaveLtextsToNewFile_Click(object sender, RoutedEventArgs e) {
-            if (_langOffset == 0x0) {
-                MessageBox.Show("Please choose a language to save this translation as!", "No Language Chosen", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
             string saveAsPath;
             SaveFileDialog dialog = new SaveFileDialog() {
                 AddExtension = true,
@@ -332,11 +428,6 @@ namespace SC4LTEXTT {
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void AddLtextsToCurrentFile_Click(object sender, RoutedEventArgs e) {
-            if (_langOffset == 0x0) {
-                MessageBox.Show("Please choose a language to save this translation as!", "No Language Chosen", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
             if (_selectedFile is null) return;
             SaveLTEXTs(_selectedFile);
         }
@@ -344,17 +435,24 @@ namespace SC4LTEXTT {
 
         private void SaveLTEXTs(DBPFFile file) {
             try {
-                ListBoxItem item;
+                TranslationItem translation;
                 DBPFEntryLTEXT newEntry;
+                DBPFEntryLTEXT existingEntry;
 
-                for (int idx = 0; idx < _listBoxItems.Count; idx++) {
-                    item = _listBoxItems[idx];
-                    if (item.ModifiedTranslations.Count > 0) {
-                        TGI baseTGI = item.BaseEntry.TGI;
-                        foreach (byte offset in item.ModifiedTranslations.Keys) {
-                            newEntry = new DBPFEntryLTEXT(new TGI((uint) baseTGI.TypeID, (uint) baseTGI.GroupID + offset, (uint) baseTGI.InstanceID), item.ModifiedTranslations[offset]);
-                            file.AddEntry(newEntry);
-                        }
+                for (int idx = 0; idx < _translationItems.Count; idx++) {
+                    translation = _translationItems[idx];
+                    TGI found = file.GetTGIs().Where(t => t == translation.ThisTGI).FirstOrDefault();
+                    
+                    //If translation TGI not found add a new entry
+                    if (found == default) {
+                        newEntry = new DBPFEntryLTEXT(translation.ThisTGI, Coalesce(translation.ModifiedTranslation, translation.ImportedTranslation));
+                        file.AddEntry(new DBPFEntryLTEXT(translation.ThisTGI, Coalesce(translation.ModifiedTranslation, translation.ImportedTranslation)));
+                    } 
+                    
+                    //If translation is found, we should update the text if it has been changed
+                    else if (translation.ModifiedTranslation != translation.ImportedTranslation && translation.ModifiedTranslation != string.Empty) {
+                        existingEntry = (DBPFEntryLTEXT) file.GetEntry(translation.ThisTGI);
+                        existingEntry.Text = translation.ModifiedTranslation;
                     }
                 }
                 if (file.CountEntries() > 0) {
@@ -365,6 +463,10 @@ namespace SC4LTEXTT {
             catch (Exception ex) {
                 TranslationOutput.Text = $"Error: {ex.Message}\r\n {ex.StackTrace}";
             }
+        }
+
+        private static string Coalesce(string text1, string text2) {
+            if (text1 == string.Empty) { return text2; } else { return text1; }
         }
     }
 }

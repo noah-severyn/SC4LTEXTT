@@ -7,13 +7,17 @@
 		Title="SC4 LTEXT Translator"
 		Height="700"
 		MinHeight="400"
-		Width="1000"
+		Width="1020"
 		MinWidth="790">
+
+	<Window.Resources>
+		<BooleanToVisibilityConverter x:Key="VisibleIfTrueConverter" />
+	</Window.Resources>
 	<Grid>
 		<Grid.ColumnDefinitions>
 			<ColumnDefinition Width="100"
 							  MinWidth="90" />
-			<ColumnDefinition Width="250"
+			<ColumnDefinition Width="260"
 							  MinWidth="250" />
 			<ColumnDefinition Width="*" />
 		</Grid.ColumnDefinitions>
@@ -44,35 +48,80 @@
 			   VerticalAlignment="Top"
 			   VerticalContentAlignment="Center"
 			   FontSize="11" />
-		<ListView x:Name="ListofLTEXTs"
-				 Grid.Column="0"
-				 Grid.Row="1"
-				 Grid.ColumnSpan="2"
-				 Width="320"
-				 SelectionMode="Single"
-				 SelectionChanged="ListofLTEXTs_OnSelectionChanged"
-				 Margin="10,0,0,10"
+		<ListView x:Name="ListOfTranslations"
+				  Grid.Column="0"
+				  Grid.Row="1"
+				  Grid.ColumnSpan="2"
+				  Width="340"
+				  SelectionMode="Single"
+				  SelectionChanged="ListOfTranslations_OnSelectionChanged"
+				  Margin="10,0,0,10"
 				  HorizontalAlignment="Left">
+			<ListView.GroupStyle>
+				<GroupStyle>
+					<GroupStyle.ContainerStyle>
+						<Style TargetType="{x:Type GroupItem}">
+							<Setter Property="Template">
+								<Setter.Value>
+									<ControlTemplate>
+										<Expander IsExpanded="True">
+											<Expander.Header>
+												<StackPanel Orientation="Horizontal"
+															Margin="0">
+													<TextBlock Text="{Binding Name}"
+															   FontWeight="Bold"
+															   Foreground="DarkBlue"
+															   FontSize="13"
+															   Width="240"
+															   VerticalAlignment="Center" />
+													<TextBlock Text="{Binding ItemCount}"
+															   FontSize="14"
+															   Foreground="Green"
+															   FontWeight="Bold"
+															   Margin="10,0,0,0" />
+													<TextBlock Text="/18"
+															   FontSize="14" />
+												</StackPanel>
+											</Expander.Header>
+											<ItemsPresenter />
+										</Expander>
+									</ControlTemplate>
+								</Setter.Value>
+							</Setter>
+						</Style>
+					</GroupStyle.ContainerStyle>
+				</GroupStyle>
+			</ListView.GroupStyle>
 			<ListView.ItemTemplate>
 				<DataTemplate>
-					<StackPanel
-								Margin="0"
+					<StackPanel Margin="0"
 								Orientation="Horizontal"
 								Background="{Binding BackColor}"
-								Width="305"
+								Width="324"
 								Height="24">
-						<TextBlock Text="{Binding BaseEntry.IndexPos}" Width="30" VerticalAlignment="Center"/>
-						<TextBlock Text="{Binding BaseEntry.TGI}"
-								   Width="230"
+						<TextBlock Text="{Binding Language.Offset, StringFormat=0x{0:x2}}"
+								   VerticalAlignment="Center"
+								   Margin="20,0,0,0"
+								   Width="28" />
+						<TextBlock Text="- "
 								   VerticalAlignment="Center" />
-						<TextBlock Text="{Binding ModifiedTranslations.Count}"
+						<TextBlock Text="{Binding Language.Desc}"
+								   Width="110"
 								   VerticalAlignment="Center" />
-						<TextBlock Text="/18"
-								   Width="30"
-								   VerticalAlignment="Center"/>
+						<TextBlock Text="{Binding ThisTGI.GroupID, StringFormat=0x{0:x8}}"
+								   Width="70"
+								   VerticalAlignment="Center" />
+						<TextBlock Text="⚠"
+								   Width="60"
+								   VerticalAlignment="Center"
+								   TextAlignment="Right"
+								   Foreground="Red"
+								   ToolTip="Translation out of date"
+								   Visibility="{Binding OutOfDate, Converter={StaticResource VisibleIfTrueConverter}}"/>
 					</StackPanel>
 				</DataTemplate>
 			</ListView.ItemTemplate>
+
 		</ListView>
 
 		<!-- Main Grid: Column 2 -->
@@ -122,16 +171,18 @@
 					  Width="220"
 					  Margin="10,0"
 					  VerticalContentAlignment="Center"
-					  SelectionChanged="TranslateTo_SelectionChanged" />
+					  SelectionChanged="TranslateTo_SelectionChanged"
+					  IsEnabled="False"/>
 			<Button x:Name="TranslateButton"
 					Grid.Row="2"
 					Grid.Column="1"
 					Content="Fetch Translation"
 					Margin="10,0"
-					Click="TranslateText_Click"
+					Click="FetchTranslation_Click"
 					VerticalAlignment="Top"
 					Height="30"
-					MaxWidth="150" />
+					MaxWidth="150"
+					IsEnabled="False"/>
 			<Label Grid.Row="3"
 				   Grid.Column="0"
 				   Content="Translation _Output"
@@ -174,30 +225,31 @@
 
 			<!-- Translate Grid: Row 6 -->
 			<StackPanel Orientation="Horizontal"
+						HorizontalAlignment="Right"
 						Grid.Column="0"
 						Grid.Row="6"
-						Grid.ColumnSpan="2"
+						Grid.ColumnSpan="3"
 						Margin="10,0">
 				<Button x:Name="AddLtextsToCurrentFile"
-						Width="180"
+						Width="150"
 						Margin="0,0,0,10"
 						Click="AddLtextsToCurrentFile_Click">
 					<StackPanel Orientation="Horizontal">
 						<Image Source="img/fluent--stack-add-24-regular.png"
 							   Margin="4" />
 						<Label VerticalContentAlignment="Center"
-							   Content="Add LTEXTs to current file" />
+							   Content="Update current file" />
 					</StackPanel>
 				</Button>
 				<Button x:Name="SaveLtextsToNewFile"
-						Width="180"
-						Margin="10,0,0,10"
+						Width="150"
+						Margin="20,0,0,10"
 						Click="SaveLtextsToNewFile_Click">
 					<StackPanel Orientation="Horizontal">
 						<Image Source="img/fluent--stack-arrow-forward-24-regular.png"
 							   Margin="4" />
 						<Label VerticalContentAlignment="Center"
-							   Content="Save LTEXTs to new file" />
+							   Content="Save to new file" />
 					</StackPanel>
 				</Button>
 			</StackPanel>
